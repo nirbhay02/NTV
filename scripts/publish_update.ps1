@@ -22,6 +22,19 @@ $armv7Apk = Get-ChildItem "app\build\outputs\apk\release\*armeabi-v7a*.apk" -Err
 
 $universalSize = if ($universalApk) { $universalApk.Length } else { 0 }
 
+if ($universalApk) { 
+    Copy-Item $universalApk.FullName "$releaseDir\NTV_v$VersionName.apk" -Force 
+    Write-Host "[+] Copied Universal APK ($([math]::Round($universalSize/1MB, 2)) MB) -> $releaseDir\NTV_v$VersionName.apk" -ForegroundColor Green
+}
+if ($arm64Apk) { 
+    Copy-Item $arm64Apk.FullName "$releaseDir\NTV_v${VersionName}_arm64.apk" -Force 
+    Write-Host "[+] Copied ARM64 APK ($([math]::Round($arm64Apk.Length/1MB, 2)) MB) -> $releaseDir\NTV_v${VersionName}_arm64.apk" -ForegroundColor Green
+}
+if ($armv7Apk) { 
+    Copy-Item $armv7Apk.FullName "$releaseDir\NTV_v${VersionName}_firetv_armv7.apk" -Force 
+    Write-Host "[+] Copied Fire TV/ARMv7 APK ($([math]::Round($armv7Apk.Length/1MB, 2)) MB) -> $releaseDir\NTV_v${VersionName}_firetv_armv7.apk" -ForegroundColor Green
+}
+
 $jsonContent = [PSCustomObject]@{
     versionCode = $VersionCode
     versionName = $VersionName

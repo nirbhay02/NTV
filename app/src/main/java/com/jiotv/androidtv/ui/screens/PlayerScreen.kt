@@ -113,6 +113,7 @@ fun PlayerScreen(
     val allChannels by viewModel.allChannels.collectAsState()
     val isQuickGuideVisible by viewModel.isQuickGuideVisible.collectAsState()
     val isTrackSelectorVisible by viewModel.isTrackSelectorVisible.collectAsState()
+    val numericInput by viewModel.numericInput.collectAsState()
 
     val focusRequester = remember { FocusRequester() }
     val now = rememberMinuteClock()
@@ -219,6 +220,16 @@ fun PlayerScreen(
                                 }
                                 KeyEvent.KEYCODE_INFO -> {
                                     viewModel.toggleOsd()
+                                    true
+                                }
+                                in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9 -> {
+                                    val digit = keyEvent.nativeKeyEvent.keyCode - KeyEvent.KEYCODE_0
+                                    viewModel.onNumberKeyPressed(digit)
+                                    true
+                                }
+                                in KeyEvent.KEYCODE_NUMPAD_0..KeyEvent.KEYCODE_NUMPAD_9 -> {
+                                    val digit = keyEvent.nativeKeyEvent.keyCode - KeyEvent.KEYCODE_NUMPAD_0
+                                    viewModel.onNumberKeyPressed(digit)
                                     true
                                 }
                                 KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
@@ -354,6 +365,31 @@ fun PlayerScreen(
                                 }
                             )
                         }
+                    }
+                }
+            }
+
+            // Numeric Channel Entry Badge (Set-Top Box direct number typing)
+            if (numericInput.isNotEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 40.dp, end = 48.dp)
+                        .background(StrapBg, RoundedCornerShape(12.dp))
+                        .border(1.5.dp, Jtv.colors.acc, RoundedCornerShape(12.dp))
+                        .padding(horizontal = 20.dp, vertical = 10.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "CH ",
+                            style = textStyle(16.sp, FontWeight.Medium),
+                            color = Color(0xFF94A3B8)
+                        )
+                        Text(
+                            text = numericInput,
+                            style = textStyle(32.sp, FontWeight.Bold),
+                            color = Jtv.colors.acc
+                        )
                     }
                 }
             }

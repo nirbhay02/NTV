@@ -21,7 +21,9 @@ import java.net.URL
 object AppUpdateManager {
     private const val TAG = "AppUpdateManager"
     
-    // Default GitHub repository releases API endpoint for nirbhay02/NTV
+    // Default raw JSON CDN endpoint (Fastly-backed, zero rate limits)
+    const val DEFAULT_RAW_UPDATE_URL = "https://raw.githubusercontent.com/nirbhay02/NTV/main/releases/update.json"
+    // Secondary fallback: GitHub repository releases API endpoint
     const val DEFAULT_GITHUB_RELEASE_URL = "https://api.github.com/repos/nirbhay02/NTV/releases/latest"
 
     data class UpdateInfo(
@@ -91,106 +93,120 @@ object AppUpdateManager {
 
     /**
      * Checks remote endpoint for updates. Supports:
-     * 1. GitHub Releases API (https://api.github.com/...)
-     * 2. Custom JSON schema (raw URL with versionCode, versionName, changelog, assets)
+     * 1. Primary: Fast raw CDN update.json (no rate limits)
+     * 2. Secondary fallback: GitHub Releases API
+     * 3. Custom JSON schema
      */
     suspend fun checkForUpdate(
         context: Context,
         customUrl: String? = null
     ): Result<UpdateInfo?> = withContext(Dispatchers.IO) {
-        var connection: HttpURLConnection? = null
-        try {
-            val endpoint = if (!customUrl.isNullOrBlank()) customUrl.trim() else DEFAULT_GITHUB_RELEASE_URL
-            val url = URL(endpoint)
-            connection = url.openConnection() as HttpURLConnection
-            connection.requestMethod = "GET"
-            connection.connectTimeout = 10000
-            connection.readTimeout = 15000
-            connection.setRequestProperty("User-Agent", "NTV-AndroidTV/${getCurrentVersionName(context)}")
-            connection.setRequestProperty("Accept", "application/json, application/vnd.github.v3+json")
-
-            val responseCode = connection.responseCode
-            if (responseCode in 200..299) {
-                val responseText = connection.inputStream.bufferedReader().use { it.readText() }
-                val rootJson = JSONObject(responseText)
-
-                // Detect if GitHub release format or custom update.json
-                val isGitHub = rootJson.has("tag_name")
-
-                val remoteVersionName: String
-                val remoteVersionCode: Int
-                val tagName: String
-                val title: String
-                val changelog: String
-                var apkDownloadUrl = ""
-                var apkSize = 0L
-
-                if (isGitHub) {
-                    tagName = rootJson.optString("tag_name", "")
-                    remoteVersionName = tagName.removePrefix("v").removePrefix("V")
-                    remoteVersionCode = 0 // GitHub releases don't explicitly carry versionCode
-                    title = rootJson.optString("name", "NTV Update v$remoteVersionName")
-                    changelog = rootJson.optString("body", "Bug fixes and improvements")
-
-                    // Smart ABI asset selection
-                    val assets = rootJson.optJSONArray("assets")
-                    if (assets != null && assets.length() > 0) {
-                        val chosenAsset = selectBestApkAsset(assets)
-                        if (chosenAsset != null) {
-                            apkDownloadUrl = chosenAsset.optString("browser_download_url", "")
-                            apkSize = chosenAsset.optLong("size", 0L)
-                        }
-                    }
-                } else {
-                    // Custom update.json format
-                    remoteVersionName = rootJson.optString("versionName", "1.0.0")
-                    remoteVersionCode = rootJson.optInt("versionCode", 0)
-                    tagName = "v$remoteVersionName"
-                    title = rootJson.optString("title", "NTV Update v$remoteVersionName")
-                    changelog = rootJson.optString("changelog", "Bug fixes and improvements")
-
-                    apkDownloadUrl = selectBestCustomApkUrl(rootJson)
-                    apkSize = rootJson.optLong("size", 0L)
-                }
-
-                if (apkDownloadUrl.isEmpty()) {
-                    Log.w(TAG, "No suitable APK asset found in release response")
-                    return@withContext Result.success(null)
-                }
-
-                val currentVersionName = getCurrentVersionName(context)
-                val currentVersionCode = getCurrentVersionCode()
-
-                val isAvailable = if (remoteVersionCode > 0) {
-                    remoteVersionCode > currentVersionCode
-                } else {
-                    isNewerVersion(remoteVersionName, currentVersionName)
-                }
-
-                val updateInfo = UpdateInfo(
-                    versionName = remoteVersionName,
-                    versionCode = remoteVersionCode,
-                    tagName = tagName,
-                    title = title,
-                    changelog = changelog,
-                    downloadUrl = apkDownloadUrl,
-                    apkSize = apkSize,
-                    isUpdateAvailable = isAvailable
-                )
-                Result.success(updateInfo)
-            } else if (responseCode == 404) {
-                Log.w(TAG, "No release found at $endpoint (HTTP 404)")
-                Result.failure(Exception("No release found (HTTP 404). Ensure the GitHub repository is set to Public and a Release is published under Releases."))
-            } else {
-                Log.e(TAG, "Update check failed with HTTP $responseCode")
-                Result.failure(Exception("HTTP $responseCode from update server"))
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error checking update", e)
-            Result.failure(e)
-        } finally {
-            connection?.disconnect()
+        val candidateEndpoints = if (!customUrl.isNullOrBlank()) {
+            listOf(customUrl.trim())
+        } else {
+            listOf(DEFAULT_RAW_UPDATE_URL, DEFAULT_GITHUB_RELEASE_URL)
         }
+
+        var lastException: Throwable? = null
+
+        for (endpoint in candidateEndpoints) {
+            var connection: HttpURLConnection? = null
+            try {
+                val url = URL(endpoint)
+                connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 8000
+                connection.readTimeout = 12000
+                connection.setRequestProperty("User-Agent", "NTV-AndroidTV/${getCurrentVersionName(context)}")
+                connection.setRequestProperty("Accept", "application/json, application/vnd.github.v3+json, text/plain")
+
+                val responseCode = connection.responseCode
+                if (responseCode in 200..299) {
+                    val responseText = connection.inputStream.bufferedReader().use { it.readText() }
+                    val rootJson = JSONObject(responseText)
+
+                    // Detect if GitHub release format or custom update.json
+                    val isGitHub = rootJson.has("tag_name")
+
+                    val remoteVersionName: String
+                    val remoteVersionCode: Int
+                    val tagName: String
+                    val title: String
+                    val changelog: String
+                    var apkDownloadUrl = ""
+                    var apkSize = 0L
+
+                    if (isGitHub) {
+                        tagName = rootJson.optString("tag_name", "")
+                        remoteVersionName = tagName.removePrefix("v").removePrefix("V")
+                        remoteVersionCode = 0 // GitHub releases don't explicitly carry versionCode
+                        title = rootJson.optString("name", "NTV Update v$remoteVersionName")
+                        changelog = rootJson.optString("body", "Bug fixes and improvements")
+
+                        // Smart ABI asset selection
+                        val assets = rootJson.optJSONArray("assets")
+                        if (assets != null && assets.length() > 0) {
+                            val chosenAsset = selectBestApkAsset(assets)
+                            if (chosenAsset != null) {
+                                apkDownloadUrl = chosenAsset.optString("browser_download_url", "")
+                                apkSize = chosenAsset.optLong("size", 0L)
+                            }
+                        }
+                    } else {
+                        // Custom update.json format
+                        remoteVersionName = rootJson.optString("versionName", "1.0.0")
+                        remoteVersionCode = rootJson.optInt("versionCode", 0)
+                        tagName = "v$remoteVersionName"
+                        title = rootJson.optString("title", "NTV Update v$remoteVersionName")
+                        changelog = rootJson.optString("changelog", "Bug fixes and improvements")
+
+                        apkDownloadUrl = selectBestCustomApkUrl(rootJson)
+                        apkSize = rootJson.optLong("size", 0L)
+                    }
+
+                    if (apkDownloadUrl.isEmpty()) {
+                        Log.w(TAG, "No suitable APK asset found in release response from $endpoint")
+                        continue
+                    }
+
+                    val currentVersionName = getCurrentVersionName(context)
+                    val currentVersionCode = getCurrentVersionCode()
+
+                    val isAvailable = if (remoteVersionCode > 0) {
+                        remoteVersionCode > currentVersionCode
+                    } else {
+                        isNewerVersion(remoteVersionName, currentVersionName)
+                    }
+
+                    val updateInfo = UpdateInfo(
+                        versionName = remoteVersionName,
+                        versionCode = remoteVersionCode,
+                        tagName = tagName,
+                        title = title,
+                        changelog = changelog,
+                        downloadUrl = apkDownloadUrl,
+                        apkSize = apkSize,
+                        isUpdateAvailable = isAvailable
+                    )
+                    return@withContext Result.success(updateInfo)
+                } else if (responseCode == 403) {
+                    Log.w(TAG, "Rate limited or forbidden from $endpoint (HTTP 403)")
+                    lastException = Exception("HTTP 403 (Rate limit reached)")
+                } else if (responseCode == 404) {
+                    Log.w(TAG, "Release not found at $endpoint (HTTP 404)")
+                    lastException = Exception("No release found (HTTP 404)")
+                } else {
+                    lastException = Exception("HTTP $responseCode from $endpoint")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to check update from $endpoint: ${e.message}")
+                lastException = e
+            } finally {
+                connection?.disconnect()
+            }
+        }
+
+        Result.failure(lastException ?: Exception("Unable to check for updates"))
     }
 
     /**
@@ -334,11 +350,19 @@ object AppUpdateManager {
             // On Android 8.0+ verify unknown app install permission
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 if (!context.packageManager.canRequestPackageInstalls()) {
-                    val settingsIntent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-                        data = Uri.parse("package:${context.packageName}")
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    try {
+                        val settingsIntent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                            data = Uri.parse("package:${context.packageName}")
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        context.startActivity(settingsIntent)
+                    } catch (_: Exception) {
+                        try {
+                            context.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS).apply {
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            })
+                        } catch (_: Exception) {}
                     }
-                    context.startActivity(settingsIntent)
                     return Result.failure(Exception("Please grant permission to install unknown apps, then retry"))
                 }
             }

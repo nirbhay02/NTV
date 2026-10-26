@@ -55,6 +55,9 @@ class EpgRepository(
     private val _epgMap = MutableStateFlow<Map<String, List<EpgProgram>>>(emptyMap())
     val epgMap: StateFlow<Map<String, List<EpgProgram>>> = _epgMap.asStateFlow()
 
+    private val _nameToIdMap = MutableStateFlow<Map<String, String>>(emptyMap())
+    val nameToIdMap: StateFlow<Map<String, String>> = _nameToIdMap.asStateFlow()
+
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
@@ -113,10 +116,11 @@ class EpgRepository(
             Log.d(tag, "Loading EPG from local cache file (${cacheFile.length() / 1024} KB)...")
             val isGzip = isGzipStream(cacheFile)
             val stream = FileInputStream(cacheFile)
-            val parsed = epgParser.parse(stream, isGzip = isGzip)
+            val data = epgParser.parseData(stream, isGzip = isGzip)
             currentProgramCache.clear()
-            _epgMap.value = parsed
-            Log.d(tag, "Successfully loaded EPG cache for ${parsed.size} channels.")
+            _epgMap.value = data.programsByChannel
+            _nameToIdMap.value = data.nameToChannelId
+            Log.d(tag, "Successfully loaded EPG cache for ${data.programsByChannel.size} channels.")
         } catch (e: Exception) {
             Log.e(tag, "Failed to parse local EPG cache: ${e.message}")
         }
@@ -171,19 +175,20 @@ class EpgRepository(
 
                     if (tempFile.length() > 1024) { // At least 1KB valid data
                         val isGz = isGzipStream(tempFile)
-                        val testParse = epgParser.parse(FileInputStream(tempFile), isGzip = isGz)
-                        if (testParse.isNotEmpty()) {
+                        val testData = epgParser.parseData(FileInputStream(tempFile), isGzip = isGz)
+                        if (testData.programsByChannel.isNotEmpty()) {
                             // Atomic replace
                             if (cacheFile.exists()) cacheFile.delete()
                             tempFile.renameTo(cacheFile)
 
                             currentProgramCache.clear()
-                            _epgMap.value = testParse
+                            _epgMap.value = testData.programsByChannel
+                            _nameToIdMap.value = testData.nameToChannelId
                             val now = System.currentTimeMillis()
                             _lastSyncTimestamp.value = now
                             appPreferences.saveLastEpgSync(now)
 
-                            Log.d(tag, "Successfully synced EPG (${testParse.size} channels) from $url")
+                            Log.d(tag, "Successfully synced EPG (${testData.programsByChannel.size} channels, ${testData.nameToChannelId.size} aliases) from $url")
                             success = true
                             return@withContext true
                         }
@@ -208,8 +213,9 @@ class EpgRepository(
      * Looks up the currently airing program for a channel at [timestamp].
      * Uses an ultra-fast O(1) in-memory cache to ensure 60fps scroll performance on Android TV / Fire TV.
      */
-    fun getCurrentProgram(channelId: String, timestamp: Long = System.currentTimeMillis()): EpgProgram? {
-        val cached = currentProgramCache[channelId]
+    fun getCurrentProgram(channelId: String, timestamp: Long = System.currentTimeMillis(), channelName: String? = null): EpgProgram? {
+        val cacheKey = if (!channelName.isNullOrBlank()) "$channelId:$channelName" else channelId
+        val cached = currentProgramCache[cacheKey]
         if (cached != null) {
             val (cachedAt, prog) = cached
             if (prog != null && timestamp >= prog.startEpochMs && timestamp < prog.stopEpochMs) {
@@ -220,13 +226,13 @@ class EpgRepository(
             }
         }
 
-        val prog = computeCurrentProgram(channelId, timestamp)
-        currentProgramCache[channelId] = Pair(timestamp, prog)
+        val prog = computeCurrentProgram(channelId, timestamp, channelName)
+        currentProgramCache[cacheKey] = Pair(timestamp, prog)
         return prog
     }
 
-    private fun computeCurrentProgram(channelId: String, timestamp: Long): EpgProgram? {
-        val programs = getProgramsForChannel(channelId)
+    private fun computeCurrentProgram(channelId: String, timestamp: Long, channelName: String? = null): EpgProgram? {
+        val programs = getProgramsForChannel(channelId, channelName)
         if (programs.isEmpty()) return null
 
         // 1. Direct match: program actively running right now
@@ -262,7 +268,7 @@ class EpgRepository(
     /**
      * Returns the full list of programs available for a channel.
      */
-    fun getProgramsForChannel(channelId: String): List<EpgProgram> {
+    fun getProgramsForChannel(channelId: String, channelName: String? = null): List<EpgProgram> {
         val map = _epgMap.value
         if (map.isEmpty()) return emptyList()
 
@@ -280,6 +286,15 @@ class EpgRepository(
             val noZeroes = digits.trimStart('0')
             if (noZeroes.isNotEmpty()) {
                 map[noZeroes]?.let { if (it.isNotEmpty()) return it }
+            }
+        }
+
+        // 4. Normalized display name match
+        if (!channelName.isNullOrBlank()) {
+            val cleanName = channelName.lowercase().replace(Regex("[^a-z0-9]"), "")
+            val mappedId = _nameToIdMap.value[cleanName]
+            if (mappedId != null) {
+                map[mappedId]?.let { if (it.isNotEmpty()) return it }
             }
         }
 

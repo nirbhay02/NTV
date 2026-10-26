@@ -169,6 +169,16 @@ class MainActivity : ComponentActivity() {
                         pvm.toggleOsd()
                         return true
                     }
+                    in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9 -> {
+                        val digit = event.keyCode - KeyEvent.KEYCODE_0
+                        pvm.onNumberKeyPressed(digit)
+                        return true
+                    }
+                    in KeyEvent.KEYCODE_NUMPAD_0..KeyEvent.KEYCODE_NUMPAD_9 -> {
+                        val digit = event.keyCode - KeyEvent.KEYCODE_NUMPAD_0
+                        pvm.onNumberKeyPressed(digit)
+                        return true
+                    }
                 }
             }
         }

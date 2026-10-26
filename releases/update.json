@@ -1,12 +1,12 @@
-{
-  "versionCode": 4,
-  "versionName": "1.2.1",
-  "title": "NTV Android TV & Tablet v1.2.1",
-  "changelog": "• Verified in-app OTA auto-updater system.\n• Enhanced error reporting for update server connectivity.\n• Maintained ultra-compact build size (~11.6 MB on tablet, 11.9 MB on Fire TV).",
-  "size": 19450000,
-  "assets": {
-    "universal": "https://github.com/nirbhay02/NTV/releases/download/v1.2.1/NTV_v1.2.1.apk",
-    "arm64": "https://github.com/nirbhay02/NTV/releases/download/v1.2.1/NTV_v1.2.1_arm64.apk",
-    "firetv": "https://github.com/nirbhay02/NTV/releases/download/v1.2.1/NTV_v1.2.1_firetv_armv7.apk"
-  }
+﻿{
+    "versionCode":  5,
+    "versionName":  "1.2.2",
+    "title":  "NTV Android TV v1.2.2",
+    "changelog":  "• Direct TV Remote 0-9 numeric channel entry with on-screen badge.\n• Pre-launch zombie cleanup \u0026 direct ProcessBuilder for embedded engine stability.\n• EPG display-name and alias matching for curated Zee and sports streams.\n• M3U playlist parser support for #KODIPROP DRM keys and tvg-chno numbers.\n• Native Android TV AudioAttributes for system audio focus handling.\n• Rate-limit resilient OTA update checks via Fastly raw GitHub CDN.",
+    "size":  19455283,
+    "assets":  {
+                   "universal":  "https://github.com/nirbhay02/NTV/releases/download/v1.2.2/NTV_v1.2.2.apk",
+                   "arm64":  "https://github.com/nirbhay02/NTV/releases/download/v1.2.2/NTV_v1.2.2_arm64.apk",
+                   "firetv":  "https://github.com/nirbhay02/NTV/releases/download/v1.2.2/NTV_v1.2.2_firetv_armv7.apk"
+               }
 }

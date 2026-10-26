@@ -17,6 +17,7 @@ import com.jiotv.androidtv.player.PlayerPlaybackState
 import com.jiotv.androidtv.player.TvPlayerManager
 import com.jiotv.androidtv.player.VideoTrackOption
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -56,6 +57,31 @@ class PlayerViewModel(
 
     private val _isTrackSelectorVisible = MutableStateFlow(false)
     val isTrackSelectorVisible: StateFlow<Boolean> = _isTrackSelectorVisible.asStateFlow()
+
+    private val _numericInput = MutableStateFlow("")
+    val numericInput: StateFlow<String> = _numericInput.asStateFlow()
+    private var numericInputJob: Job? = null
+
+    fun onNumberKeyPressed(digit: Int) {
+        numericInputJob?.cancel()
+        val current = _numericInput.value
+        val updated = if (current.length < 4) current + digit else digit.toString()
+        _numericInput.value = updated
+        showOsd()
+
+        numericInputJob = viewModelScope.launch {
+            delay(1200) // 1.2s delay for multi-digit entry
+            val channelNum = _numericInput.value.toIntOrNull()
+            _numericInput.value = ""
+            if (channelNum != null) {
+                val match = allChannels.value.find { it.number == channelNum }
+                    ?: allChannels.value.find { it.id == channelNum.toString() }
+                if (match != null) {
+                    playChannel(match)
+                }
+            }
+        }
+    }
 
     fun initPlayer(initialChannelId: String, categoryId: String? = null) {
         activeCategoryId = categoryId

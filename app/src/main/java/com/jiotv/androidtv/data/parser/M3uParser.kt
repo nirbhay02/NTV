@@ -38,6 +38,10 @@ class M3uParser(private val serverConfig: ServerConfig) {
         var currentGroup = "Entertainment"
         var currentLanguage = "Hindi"
         var currentName = ""
+        var currentChNo: Int? = null
+        var currentLicenseKey: String? = null
+        var currentLicenseType: String? = null
+        var currentManifestType: String? = null
         var channelIndex = 1
 
         for (rawLine in lines) {
@@ -53,6 +57,9 @@ class M3uParser(private val serverConfig: ServerConfig) {
                 currentTvgName = attributes["tvg-name"].orEmpty()
                 currentLogo = attributes["tvg-logo"]
                 
+                val chNo = attributes["tvg-chno"] ?: attributes["chno"] ?: attributes["channel-number"]
+                currentChNo = chNo?.toIntOrNull()
+
                 val rawGroup = attributes["group-title"] ?: "Entertainment"
                 if (rawGroup.contains(" - ")) {
                     val parts = rawGroup.split(" - ", limit = 2)
@@ -72,22 +79,38 @@ class M3uParser(private val serverConfig: ServerConfig) {
                 } else {
                     "Channel $channelIndex"
                 }
+            } else if (line.startsWith("#KODIPROP:", ignoreCase = true)) {
+                val prop = line.substringAfter(":").trim()
+                val eqIdx = prop.indexOf('=')
+                if (eqIdx != -1) {
+                    val key = prop.substring(0, eqIdx).trim().lowercase()
+                    val value = prop.substring(eqIdx + 1).trim()
+                    when {
+                        key.contains("license_key") -> currentLicenseKey = value
+                        key.contains("license_type") -> currentLicenseType = value
+                        key.contains("manifest_type") -> currentManifestType = value
+                    }
+                }
             } else if (!line.startsWith("#")) {
                 // This line contains the stream URL
                 val rawUrl = line
                 val resolvedUrl = serverConfig.resolveStreamUrl(rawUrl)
 
                 val isHd = ChannelFilter.isHdChannel(currentName, currentGroup)
+                val channelNumber = currentChNo ?: channelIndex
                 val testChannel = Channel(
                     id = currentTvgId,
                     name = currentName,
-                    number = channelIndex,
+                    number = channelNumber,
                     logoUrl = currentLogo?.let { serverConfig.resolveStreamUrl(it) },
                     streamUrl = resolvedUrl,
                     groupTitle = currentGroup,
                     language = currentLanguage,
                     isHd = isHd,
-                    tvgName = currentTvgName
+                    tvgName = currentTvgName,
+                    licenseKeyUrl = currentLicenseKey,
+                    licenseType = currentLicenseType,
+                    manifestType = currentManifestType
                 )
                 val isZee = ChannelFilter.isZeeChannel(testChannel)
 
@@ -101,6 +124,10 @@ class M3uParser(private val serverConfig: ServerConfig) {
                 currentGroup = "Entertainment"
                 currentLanguage = "Hindi"
                 currentName = ""
+                currentChNo = null
+                currentLicenseKey = null
+                currentLicenseType = null
+                currentManifestType = null
             }
         }
 

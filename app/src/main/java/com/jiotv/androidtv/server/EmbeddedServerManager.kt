@@ -136,6 +136,9 @@ class EmbeddedServerManager private constructor(private val context: Context) {
                 _serverState.value = EmbeddedServerState.Starting
                 appendLog("Launching jiotv_go binary: ${binaryFile.absolutePath} on $DEFAULT_HOST:$port...")
 
+                // Terminate any previous orphan jiotv_go processes to avoid 'bind: address already in use'
+                killExistingBinaries()
+
                 // Setup jiotv_go working directories matching official jiotv_go_app
                 val jtvDir = File(context.filesDir, "jiotv_go").apply { mkdirs() }
                 File(context.filesDir, ".jiotv_go").apply { mkdirs() }
@@ -156,11 +159,7 @@ class EmbeddedServerManager private constructor(private val context: Context) {
                 // Also write to context.filesDir directly
                 File(context.filesDir, "jtv_config.json").writeText(configJson.toString(2))
 
-                // Build execution arguments with explicit 0.0.0.0 binding for robust IPv4/IPv6 compatibility on Fire OS:
-                val execCommand = "${binaryFile.absolutePath} --config \"${configFile.absolutePath}\" run --host 0.0.0.0 --port $port --public"
-                appendLog("Executing: $execCommand")
-
-                // Crucial fix: Inherit all system environment variables so linker can find libc.so / system libs
+                // Environment variables
                 val envMap = HashMap(System.getenv()).apply {
                     put("HOME", context.filesDir.absolutePath)
                     put("TMPDIR", context.cacheDir.absolutePath)
@@ -170,33 +169,33 @@ class EmbeddedServerManager private constructor(private val context: Context) {
                     val existingPath = get("PATH") ?: "/system/bin:/system/xbin"
                     put("PATH", "$existingPath:${context.filesDir.absolutePath}/bin")
                 }
-                val envp = envMap.map { "${it.key}=${it.value}" }.toTypedArray()
 
+                val command = listOf(
+                    binaryFile.absolutePath,
+                    "--config", configFile.absolutePath,
+                    "run",
+                    "--host", "0.0.0.0",
+                    "--port", port.toString(),
+                    "--public"
+                )
+                appendLog("Executing: ${command.joinToString(" ")}")
+
+                // Prioritize direct ProcessBuilder so serverProcess is directly bound to jiotv_go (not an intermediate sh shell)
                 var process = try {
-                    Runtime.getRuntime().exec(arrayOf("sh", "-c", execCommand), envp, context.filesDir)
-                } catch (shEx: Exception) {
-                    appendLog("sh -c exec failed (${shEx.message}), trying direct ProcessBuilder...")
-                    null
-                }
-
-                // If sh -c terminated immediately (e.g. exit code 126/127), fall back to direct ProcessBuilder
-                delay(300)
-                if (process == null || (!process.isAlive && process.exitValue() != 0)) {
-                    val code = process?.exitValue()
-                    appendLog("Initial shell execution failed (exit code: $code), falling back to ProcessBuilder...")
-                    val command = listOf(
-                        binaryFile.absolutePath,
-                        "--config", configFile.absolutePath,
-                        "run",
-                        "--host", "0.0.0.0",
-                        "--port", port.toString(),
-                        "--public"
-                    )
-                    process = ProcessBuilder(command).apply {
+                    ProcessBuilder(command).apply {
                         directory(context.filesDir)
                         environment().putAll(envMap)
                         redirectErrorStream(true)
                     }.start()
+                } catch (pbEx: Exception) {
+                    appendLog("Direct ProcessBuilder failed (${pbEx.message}), attempting shell fallback...")
+                    null
+                }
+
+                if (process == null || (!process.isAlive && process.exitValue() != 0)) {
+                    val envp = envMap.map { "${it.key}=${it.value}" }.toTypedArray()
+                    val execCommand = "${binaryFile.absolutePath} --config \"${configFile.absolutePath}\" run --host 0.0.0.0 --port $port --public"
+                    process = Runtime.getRuntime().exec(arrayOf("sh", "-c", execCommand), envp, context.filesDir)
                 }
 
                 serverProcess = process
@@ -402,14 +401,26 @@ class EmbeddedServerManager private constructor(private val context: Context) {
         }
     }
 
+    private fun killExistingBinaries() {
+        try {
+            Runtime.getRuntime().exec(arrayOf("pkill", "-9", "-f", "jiotv_go")).waitFor()
+        } catch (_: Exception) {}
+    }
+
     fun stopServer() {
         healthCheckJob?.cancel()
         logCollectorJob?.cancel()
 
         try {
-            serverProcess?.destroy()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                serverProcess?.destroyForcibly()
+            } else {
+                serverProcess?.destroy()
+            }
             serverProcess = null
         } catch (_: Exception) {}
+
+        killExistingBinaries()
 
         _serverState.value = EmbeddedServerState.Stopped
         appendLog("Server stopped.")

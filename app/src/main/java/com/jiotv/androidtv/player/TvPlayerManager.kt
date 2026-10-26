@@ -3,6 +3,7 @@ package com.jiotv.androidtv.player
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
@@ -196,6 +197,13 @@ class TvPlayerManager(
             .setLivePlaybackSpeedControl(liveSpeedControl)
             .setMediaSourceFactory(mediaSourceFactory)
             .setWakeMode(C.WAKE_MODE_NETWORK)
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(C.USAGE_MEDIA)
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+                    .build(),
+                /* handleAudioFocus = */ true
+            )
             .experimentalSetDynamicSchedulingEnabled(false)
             .build().apply {
                 playWhenReady = true

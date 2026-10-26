@@ -9,19 +9,23 @@ import java.util.Locale
 import java.util.TimeZone
 import java.util.zip.GZIPInputStream
 
+data class EpgData(
+    val programsByChannel: Map<String, List<EpgProgram>> = emptyMap(),
+    val nameToChannelId: Map<String, String> = emptyMap()
+)
+
 class EpgParser {
 
     /**
-     * Parses XMLTV XML/GZIP input stream into a map of channelId -> List<EpgProgram>.
-     *
-     * @param minStopEpoch Programs stopping before this epoch (e.g., expired > 4h ago) are skipped to save RAM.
+     * Parses XMLTV XML/GZIP input stream into an [EpgData] containing programs and channel display names.
      */
-    fun parse(
+    fun parseData(
         inputStream: InputStream,
         isGzip: Boolean = false,
         minStopEpoch: Long = System.currentTimeMillis() - 36 * 3600_000L
-    ): Map<String, List<EpgProgram>> {
+    ): EpgData {
         val programsByChannel = mutableMapOf<String, MutableList<EpgProgram>>()
+        val nameToChannelId = mutableMapOf<String, String>()
         val stream = if (isGzip) GZIPInputStream(inputStream) else inputStream
         stream.use { s ->
             val parser = Xml.newPullParser().apply {
@@ -29,7 +33,8 @@ class EpgParser {
                 setInput(s, "UTF-8")
             }
             var eventType = parser.eventType
-            var currentChannelId: String? = null
+            var currentChannelTagId: String? = null
+            var currentProgrammeChannelId: String? = null
             var currentStartEpoch = 0L
             var currentStopEpoch = 0L
             var currentTitle = ""
@@ -41,8 +46,18 @@ class EpgParser {
                 when (eventType) {
                     XmlPullParser.START_TAG -> {
                         when (tagName) {
+                            "channel" -> {
+                                currentChannelTagId = parser.getAttributeValue(null, "id")
+                            }
+                            "display-name" -> {
+                                val dName = parser.nextText()
+                                if (currentChannelTagId != null && dName.isNotBlank()) {
+                                    val cleanName = dName.lowercase().replace(Regex("[^a-z0-9]"), "")
+                                    nameToChannelId[cleanName] = currentChannelTagId
+                                }
+                            }
                             "programme" -> {
-                                currentChannelId = parser.getAttributeValue(null, "channel")
+                                currentProgrammeChannelId = parser.getAttributeValue(null, "channel")
                                 val startStr = parser.getAttributeValue(null, "start")
                                 val stopStr = parser.getAttributeValue(null, "stop")
                                 currentStartEpoch = parseFastXmltvDate(startStr)
@@ -57,17 +72,19 @@ class EpgParser {
                         }
                     }
                     XmlPullParser.END_TAG -> {
-                        if (tagName == "programme" && currentChannelId != null) {
+                        if (tagName == "channel") {
+                            currentChannelTagId = null
+                        } else if (tagName == "programme" && currentProgrammeChannelId != null) {
                             if (minStopEpoch <= 0L || currentStopEpoch >= minStopEpoch) {
                                 val program = EpgProgram(
-                                    channelId = currentChannelId,
+                                    channelId = currentProgrammeChannelId,
                                     title = currentTitle.trim(),
                                     description = currentDesc.trim(),
                                     startEpochMs = currentStartEpoch,
                                     stopEpochMs = currentStopEpoch,
                                     category = currentCategory?.trim()
                                 )
-                                programsByChannel.getOrPut(currentChannelId) { mutableListOf() }.add(program)
+                                programsByChannel.getOrPut(currentProgrammeChannelId) { mutableListOf() }.add(program)
                             }
                         }
                     }
@@ -75,8 +92,17 @@ class EpgParser {
                 eventType = parser.next()
             }
         }
-        return programsByChannel
+        return EpgData(programsByChannel, nameToChannelId)
     }
+
+    /**
+     * Parses XMLTV XML/GZIP input stream into a map of channelId -> List<EpgProgram>.
+     */
+    fun parse(
+        inputStream: InputStream,
+        isGzip: Boolean = false,
+        minStopEpoch: Long = System.currentTimeMillis() - 36 * 3600_000L
+    ): Map<String, List<EpgProgram>> = parseData(inputStream, isGzip, minStopEpoch).programsByChannel
 
     companion object {
         /**
