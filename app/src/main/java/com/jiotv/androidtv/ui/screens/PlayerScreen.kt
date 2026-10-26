@@ -9,6 +9,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
@@ -72,6 +74,7 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import com.jiotv.androidtv.R
 import com.jiotv.androidtv.data.model.Channel
+import com.jiotv.androidtv.data.model.EpgProgram
 import com.jiotv.androidtv.player.AudioTrackOption
 import com.jiotv.androidtv.player.PlayerPlaybackState
 import com.jiotv.androidtv.player.VideoTrackOption
@@ -81,6 +84,7 @@ import com.jiotv.androidtv.ui.components.JtvButton
 import com.jiotv.androidtv.ui.components.JtvClickable
 import com.jiotv.androidtv.ui.components.JtvClock
 import com.jiotv.androidtv.ui.components.JtvProgress
+import com.jiotv.androidtv.ui.components.NowNext
 import com.jiotv.androidtv.ui.components.KeyHint
 import com.jiotv.androidtv.ui.components.LocalNow
 import com.jiotv.androidtv.ui.components.NumberBlock
@@ -114,6 +118,9 @@ fun PlayerScreen(
     val isQuickGuideVisible by viewModel.isQuickGuideVisible.collectAsState()
     val isTrackSelectorVisible by viewModel.isTrackSelectorVisible.collectAsState()
     val numericInput by viewModel.numericInput.collectAsState()
+    val numericMatchedChannel by viewModel.numericMatchedChannel.collectAsState()
+    val previousChannel by viewModel.previousChannel.collectAsState()
+    val recentChannels by viewModel.recentChannels.collectAsState()
 
     val focusRequester = remember { FocusRequester() }
     val now = rememberMinuteClock()
@@ -192,13 +199,11 @@ fun PlayerScreen(
                                 KeyEvent.KEYCODE_DPAD_UP,
                                 KeyEvent.KEYCODE_CHANNEL_UP -> {
                                     viewModel.switchPreviousChannel()
-                                    viewModel.showOsd()
                                     true
                                 }
                                 KeyEvent.KEYCODE_DPAD_DOWN,
                                 KeyEvent.KEYCODE_CHANNEL_DOWN -> {
                                     viewModel.switchNextChannel()
-                                    viewModel.showOsd()
                                     true
                                 }
                                 KeyEvent.KEYCODE_DPAD_LEFT -> {
@@ -210,7 +215,19 @@ fun PlayerScreen(
                                     true
                                 }
                                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                                    viewModel.toggleOsd()
+                                    if (numericInput.isNotEmpty()) {
+                                        viewModel.confirmNumericInput()
+                                    } else {
+                                        viewModel.toggleOsd()
+                                    }
+                                    true
+                                }
+                                KeyEvent.KEYCODE_LAST_CHANNEL -> {
+                                    viewModel.switchToPreviousChannel()
+                                    true
+                                }
+                                KeyEvent.KEYCODE_PROG_YELLOW -> {
+                                    viewModel.toggleAspectRatio()
                                     true
                                 }
                                 KeyEvent.KEYCODE_MENU,
@@ -277,6 +294,9 @@ fun PlayerScreen(
                 update = { playerView ->
                     if (playerView.player != activePlayer) {
                         playerView.player = activePlayer
+                    }
+                    if (playerView.resizeMode != playbackState.resizeMode) {
+                        playerView.resizeMode = playbackState.resizeMode
                     }
                 },
                 onRelease = { playerView ->
@@ -369,28 +389,66 @@ fun PlayerScreen(
                 }
             }
 
-            // Numeric Channel Entry Badge (Set-Top Box direct number typing)
+            // Numeric Channel Entry Badge (Set-Top Box direct number typing with instant matched channel preview)
             if (numericInput.isNotEmpty()) {
+                val matched = numericMatchedChannel
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(top = 40.dp, end = 48.dp)
-                        .background(StrapBg, RoundedCornerShape(12.dp))
+                        .padding(top = 36.dp, end = 44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(StrapBg)
                         .border(1.5.dp, Jtv.colors.acc, RoundedCornerShape(12.dp))
-                        .padding(horizontal = 20.dp, vertical = 10.dp)
+                        .padding(horizontal = 20.dp, vertical = 12.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "CH ",
-                            style = textStyle(16.sp, FontWeight.Medium),
-                            color = Color(0xFF94A3B8)
-                        )
-                        Text(
-                            text = numericInput,
-                            style = textStyle(32.sp, FontWeight.Bold),
-                            color = Jtv.colors.acc
-                        )
+                    Column(horizontalAlignment = Alignment.End) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "CH ",
+                                style = textStyle(18.sp, FontWeight.Medium),
+                                color = Color(0xFF94A3B8)
+                            )
+                            Text(
+                                text = numericInput,
+                                style = textStyle(34.sp, FontWeight.Black),
+                                color = Jtv.colors.acc
+                            )
+                        }
+                        if (matched != null) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = "${matched.number} · ${matched.name}",
+                                style = textStyle(13.sp, FontWeight.Bold),
+                                color = Color.White
+                            )
+                            Text(
+                                text = "Press OK to Jump",
+                                style = textStyle(11.sp, FontWeight.Medium),
+                                color = Jtv.colors.t3
+                            )
+                        }
                     }
+                }
+            }
+
+            // Compact Mini Channel Surfing Banner (pill on channel zapping)
+            AnimatedVisibility(
+                visible = playbackState.isMiniSurfingVisible && !playbackState.isOsdVisible && !isQuickGuideVisible && !isTrackSelectorVisible,
+                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+                modifier = Modifier.align(Alignment.BottomCenter)
+            ) {
+                playbackState.currentChannel?.let { channel ->
+                    val epgNowNext = remember(channel.id, now) {
+                        viewModel.getNowNext(channel.id)
+                    }
+                    MiniChannelSurfingBanner(
+                        channel = channel,
+                        now = now,
+                        epgNowNext = epgNowNext,
+                        playbackState = playbackState,
+                        previousChannel = previousChannel
+                    )
                 }
             }
 
@@ -605,6 +663,25 @@ private fun FenyxPlayerOsdOverlay(
                     )
                 }
             }
+
+            // Aspect Ratio Badge
+            val aspectLabel = when (playbackState.resizeMode) {
+                AspectRatioFrameLayout.RESIZE_MODE_FILL -> "Stretch (16:9)"
+                AspectRatioFrameLayout.RESIZE_MODE_ZOOM -> "Zoom (Crop)"
+                else -> "Fit (Original)"
+            }
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(c.s2)
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            ) {
+                Text(
+                    text = aspectLabel,
+                    style = textStyle(11.sp, FontWeight.Bold),
+                    color = c.tx
+                )
+            }
         }
 
         // BOTTOM STRAP: Channel details, Live progress, and Remote Key Hints
@@ -712,6 +789,19 @@ private fun FenyxPlayerOsdOverlay(
             Spacer(modifier = Modifier.height(10.dp))
 
             // Remote Key Navigation Hints
+            val previousChannel by viewModel.previousChannel.collectAsState()
+            val hintItems = mutableListOf(
+                "▲ / ▼" to "Switch",
+                "◄" to "Quick Guide",
+                "►" to "Audio/Tracks",
+                "Yellow" to "Aspect Ratio"
+            )
+            if (previousChannel != null) {
+                hintItems.add("Recall" to "CH ${previousChannel!!.number}")
+            }
+            hintItems.add("OK" to "Toggle Info")
+            hintItems.add("Back" to "Dashboard")
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -722,15 +812,7 @@ private fun FenyxPlayerOsdOverlay(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                KeyHint(
-                    items = listOf(
-                        "▲ / ▼" to "Switch Channel",
-                        "◄" to "Quick Guide",
-                        "►" to "Quality & Audio",
-                        "OK" to "Toggle Info",
-                        "Back" to "Dashboard"
-                    )
-                )
+                KeyHint(items = hintItems)
             }
         }
     }
@@ -749,14 +831,23 @@ private fun FenyxQuickChannelGuide(
     onClose: () -> Unit
 ) {
     val c = Jtv.colors
+    val recentChannels by viewModel.recentChannels.collectAsState()
     var selectedGroup by remember { mutableStateOf("All") }
-    val categories = remember(channels) {
-        listOf("All") + channels.map { it.groupTitle }.filter { it.isNotBlank() }.distinct()
+    val categories = remember(channels, recentChannels.size) {
+        val list = mutableListOf("All")
+        if (recentChannels.isNotEmpty()) {
+            list.add("🕒 Recent")
+        }
+        list.addAll(channels.map { it.groupTitle }.filter { it.isNotBlank() }.distinct())
+        list
     }
 
-    val filteredChannels = remember(channels, selectedGroup) {
-        if (selectedGroup == "All") channels
-        else channels.filter { it.groupTitle.equals(selectedGroup, ignoreCase = true) }
+    val filteredChannels = remember(channels, selectedGroup, recentChannels) {
+        when (selectedGroup) {
+            "All" -> channels
+            "🕒 Recent" -> recentChannels
+            else -> channels.filter { it.groupTitle.equals(selectedGroup, ignoreCase = true) }
+        }
     }
 
     val targetIdx = remember(currentChannel, filteredChannels) {
@@ -1226,3 +1317,192 @@ private fun FenyxTrackSelectorDrawer(
         }
     }
 }
+
+/**
+ * Modern compact Mini Channel Surfing Banner (pill) shown during channel zapping.
+ */
+@Composable
+private fun MiniChannelSurfingBanner(
+    channel: Channel,
+    now: Long,
+    epgNowNext: NowNext,
+    playbackState: PlayerPlaybackState,
+    previousChannel: Channel?,
+    modifier: Modifier = Modifier
+) {
+    val c = Jtv.colors
+    val currentEpg = epgNowNext.now
+    val nextEpg = epgNowNext.next
+    val programTitle = currentEpg?.title?.takeIf { it.isNotBlank() }
+        ?: channel.currentProgram
+        ?: "Live Broadcast"
+    val hasRealTimes = currentEpg != null && currentEpg.startEpochMs > 0 && currentEpg.stopEpochMs > 0
+    val timeRangeText = if (hasRealTimes) {
+        val start = formatTimeShort(currentEpg!!.startEpochMs)
+        val stop = formatTimeShort(currentEpg.stopEpochMs)
+        val mins = currentEpg.minutesLeft(now)
+        "$start - $stop · ${mins}m left"
+    } else {
+        "Live Air"
+    }
+    val progressFraction = currentEpg?.progress(now) ?: 0.5f
+
+    val aspectLabel = when (playbackState.resizeMode) {
+        AspectRatioFrameLayout.RESIZE_MODE_FILL -> "STRETCH"
+        AspectRatioFrameLayout.RESIZE_MODE_ZOOM -> "ZOOM"
+        else -> "FIT"
+    }
+
+    val genreAccent = when {
+        channel.isZee -> Color(0xFFF59E0B)
+        channel.groupTitle.contains("Sports", ignoreCase = true) -> Color(0xFF10B981)
+        channel.groupTitle.contains("Movies", ignoreCase = true) -> Color(0xFFE11D48)
+        channel.groupTitle.contains("News", ignoreCase = true) -> Color(0xFFF97316)
+        channel.groupTitle.contains("Kids", ignoreCase = true) -> Color(0xFF06B6D4)
+        else -> c.acc
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 36.dp, vertical = 24.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color(0xF2121316))
+            .border(1.5.dp, genreAccent.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+            .padding(horizontal = 20.dp, vertical = 12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Channel Number + Logo
+            if (channel.number > 0) {
+                NumberBlock(number = channel.number, fontSize = 20.sp)
+                Spacer(Modifier.width(12.dp))
+            }
+            ChannelPlate(logoUrl = channel.logoUrl.orEmpty(), width = 64.dp, height = 44.dp)
+            Spacer(Modifier.width(16.dp))
+
+            // Channel name + Program details
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = channel.name,
+                        style = textStyle(18.sp, FontWeight.Bold),
+                        color = c.tx,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    if (channel.isHd) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(genreAccent)
+                                .padding(horizontal = 5.dp, vertical = 1.dp)
+                        ) {
+                            Text(text = "HD", style = textStyle(10.sp, FontWeight.Black), color = Color.Black)
+                        }
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(c.s2)
+                            .padding(horizontal = 6.dp, vertical = 1.dp)
+                    ) {
+                        Text(text = channel.groupTitle, style = textStyle(10.sp, FontWeight.SemiBold), color = c.t2)
+                    }
+                    if (previousChannel != null) {
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            text = "Recall: CH ${previousChannel.number}",
+                            style = textStyle(11.sp, FontWeight.Medium),
+                            color = c.t3
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(4.dp))
+
+                // Show Title & Time Left
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = programTitle,
+                        style = textStyle(14.sp, FontWeight.SemiBold),
+                        color = c.tx,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        text = timeRangeText,
+                        style = textStyle(12.sp, FontWeight.Medium),
+                        color = c.t2
+                    )
+                }
+
+                Spacer(Modifier.height(5.dp))
+                JtvProgress(fraction = progressFraction, color = genreAccent, track = c.line, height = 3.dp)
+
+                // Upcoming show teaser
+                if (nextEpg != null && nextEpg.title.isNotBlank()) {
+                    Spacer(Modifier.height(4.dp))
+                    val nextStart = if (nextEpg.startEpochMs > 0) formatTimeShort(nextEpg.startEpochMs) else ""
+                    Text(
+                        text = "Next: ${nextEpg.title} ($nextStart)",
+                        style = textStyle(11.sp, FontWeight.Normal),
+                        color = c.t3,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            Spacer(Modifier.width(20.dp))
+
+            // Right Badges (Aspect, Audio, DRM)
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(c.s2)
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(text = aspectLabel, style = textStyle(10.sp, FontWeight.Bold), color = c.tx)
+                    }
+                    playbackState.selectedAudioTrack?.label?.let { audio ->
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(c.s2)
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(text = audio, style = textStyle(10.sp, FontWeight.Bold), color = c.t2)
+                        }
+                    }
+                }
+                val drmBadge = when {
+                    channel.isZee -> "ClearKey"
+                    channel.isDrm -> "Widevine"
+                    else -> "Direct"
+                }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(if (channel.isZee) genreAccent.copy(alpha = 0.2f) else c.s2)
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(text = drmBadge, style = textStyle(10.sp, FontWeight.Bold), color = if (channel.isZee) genreAccent else c.t2)
+                }
+            }
+        }
+    }
+}
+

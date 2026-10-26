@@ -1,12 +1,12 @@
 ﻿{
-    "versionCode":  5,
-    "versionName":  "1.2.2",
-    "title":  "NTV Android TV v1.2.2",
-    "changelog":  "• Direct TV Remote 0-9 numeric channel entry with on-screen badge.\n• Pre-launch zombie cleanup \u0026 direct ProcessBuilder for embedded engine stability.\n• EPG display-name and alias matching for curated Zee and sports streams.\n• M3U playlist parser support for #KODIPROP DRM keys and tvg-chno numbers.\n• Native Android TV AudioAttributes for system audio focus handling.\n• Rate-limit resilient OTA update checks via Fastly raw GitHub CDN.",
-    "size":  19455283,
+    "versionCode":  6,
+    "versionName":  "1.3",
+    "title":  "NTV Android TV v1.3",
+    "changelog":  "• Recent Channels \u0026 Quick Recall: Auto-tracks recently played channels in \u0027🕒 Recent\u0027 category and instant previous channel switch via remote key.\n• Sleek Mini Channel Surfing Banner: Bottom zapping pill with channel logo, live progress bar, next show preview, and aspect badge without darkening the screen.\n• Live Number Key Dialing Overlay: On-screen keypad entry with real-time matched channel preview and instant OK confirmation.\n• Right-Pane Live \u0026 Upcoming Preview: Genre-based ambient glow (Sports, Movies, News, Zee/ClearKey) and UP NEXT schedule card.\n• Aspect Ratio Quick Toggle: Cycle FIT (original), STRETCH (full-screen 16:9), and ZOOM modes with remote Yellow key or OSD badge.\n• D-Pad Focus Enhancements: Smooth focus elevation with genre-tinted focus border and accent strip.",
+    "size":  19465911,
     "assets":  {
-                   "universal":  "https://github.com/nirbhay02/NTV/releases/download/v1.2.2/NTV_v1.2.2.apk",
-                   "arm64":  "https://github.com/nirbhay02/NTV/releases/download/v1.2.2/NTV_v1.2.2_arm64.apk",
-                   "firetv":  "https://github.com/nirbhay02/NTV/releases/download/v1.2.2/NTV_v1.2.2_firetv_armv7.apk"
+                   "universal":  "https://github.com/nirbhay02/NTV/releases/download/v1.3/NTV_v1.3.apk",
+                   "arm64":  "https://github.com/nirbhay02/NTV/releases/download/v1.3/NTV_v1.3_arm64.apk",
+                   "firetv":  "https://github.com/nirbhay02/NTV/releases/download/v1.3/NTV_v1.3_firetv_armv7.apk"
                }
 }

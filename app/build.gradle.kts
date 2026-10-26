@@ -13,8 +13,8 @@ android {
         minSdk = 21
         // Required for local Go binary execution on Android TV
         targetSdk = 28
-        versionCode = 5
-        versionName = "1.2.2"
+        versionCode = 6
+        versionName = "1.3"
 
         vectorDrawables {
             useSupportLibrary = true

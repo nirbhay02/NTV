@@ -31,6 +31,7 @@ class AppPreferences(private val context: Context) {
         private val KEY_LAST_EPG_SYNC = longPreferencesKey("last_epg_sync_timestamp")
         private val KEY_EPG_URL = stringPreferencesKey("custom_epg_url")
         private val KEY_UPDATE_URL = stringPreferencesKey("custom_update_url")
+        private val KEY_RECENT_CHANNELS = stringPreferencesKey("recent_channel_ids_csv")
     }
 
     val updateUrlFlow: Flow<String?> = context.dataStore.data.map { prefs ->
@@ -98,6 +99,11 @@ class AppPreferences(private val context: Context) {
         prefs[KEY_LAST_CHANNEL_ID]
     }
 
+    val recentChannelIdsFlow: Flow<List<String>> = context.dataStore.data.map { prefs ->
+        val raw = prefs[KEY_RECENT_CHANNELS] ?: ""
+        if (raw.isBlank()) emptyList() else raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+    }
+
     suspend fun updateServerConfig(host: String, port: Int, quality: String) {
         context.dataStore.edit { prefs ->
             prefs[KEY_SERVER_HOST] = host.trim()
@@ -120,6 +126,17 @@ class AppPreferences(private val context: Context) {
 
     suspend fun saveLastPlayedChannel(channelId: String) {
         context.dataStore.edit { prefs ->
+            prefs[KEY_LAST_CHANNEL_ID] = channelId
+        }
+    }
+
+    suspend fun recordRecentChannel(channelId: String) {
+        if (channelId.isBlank()) return
+        context.dataStore.edit { prefs ->
+            val raw = prefs[KEY_RECENT_CHANNELS] ?: ""
+            val list = if (raw.isBlank()) emptyList() else raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+            val updated = (listOf(channelId) + list.filter { it != channelId }).take(12)
+            prefs[KEY_RECENT_CHANNELS] = updated.joinToString(",")
             prefs[KEY_LAST_CHANNEL_ID] = channelId
         }
     }

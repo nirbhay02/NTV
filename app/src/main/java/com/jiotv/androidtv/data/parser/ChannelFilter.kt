@@ -25,7 +25,11 @@ object ChannelFilter {
         return combined.contains(" HD") || combined.endsWith("HD") || combined.contains("[HD]")
     }
 
-    fun organizeCategories(channels: List<Channel>, favoriteIds: Set<String> = emptySet()): List<Category> {
+    fun organizeCategories(
+        channels: List<Channel>,
+        favoriteIds: Set<String> = emptySet(),
+        recentIds: List<String> = emptyList()
+    ): List<Category> {
         val categories = mutableListOf<Category>()
 
         // 1. Zee Network
@@ -137,6 +141,25 @@ object ChannelFilter {
                     id = "favorites",
                     title = "⭐ Favorites",
                     channels = favorites,
+                    isPriority = true
+                )
+            )
+        }
+
+        // Recently Played
+        val recentChannels = recentIds.mapNotNull { rid ->
+            val clean = rid.removePrefix("zee_")
+            channels.find { it.id == rid || it.id == "zee_$clean" || it.id.removePrefix("zee_") == clean }
+        }.distinctBy { it.id }
+
+        if (recentChannels.isNotEmpty()) {
+            val insertIdx = if (favorites.isNotEmpty()) 1 else 0
+            categories.add(
+                insertIdx,
+                Category(
+                    id = "recently_played",
+                    title = "🕒 Recent",
+                    channels = recentChannels,
                     isPriority = true
                 )
             )

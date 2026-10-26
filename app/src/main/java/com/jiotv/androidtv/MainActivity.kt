@@ -143,13 +143,19 @@ class MainActivity : ComponentActivity() {
                     KeyEvent.KEYCODE_DPAD_UP,
                     KeyEvent.KEYCODE_CHANNEL_UP -> {
                         pvm.switchPreviousChannel()
-                        pvm.showOsd()
                         return true
                     }
                     KeyEvent.KEYCODE_DPAD_DOWN,
                     KeyEvent.KEYCODE_CHANNEL_DOWN -> {
                         pvm.switchNextChannel()
-                        pvm.showOsd()
+                        return true
+                    }
+                    KeyEvent.KEYCODE_LAST_CHANNEL -> {
+                        pvm.switchToPreviousChannel()
+                        return true
+                    }
+                    KeyEvent.KEYCODE_PROG_YELLOW -> {
+                        pvm.toggleAspectRatio()
                         return true
                     }
                     KeyEvent.KEYCODE_DPAD_RIGHT -> {

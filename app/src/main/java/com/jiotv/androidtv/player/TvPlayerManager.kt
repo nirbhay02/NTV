@@ -14,6 +14,7 @@ import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.exoplayer.DefaultLivePlaybackSpeedControl
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
@@ -76,6 +77,8 @@ data class PlayerPlaybackState(
     val resolution: String = "HD",
     val errorMessage: String? = null,
     val isOsdVisible: Boolean = true,
+    val isMiniSurfingVisible: Boolean = false,
+    val resizeMode: Int = AspectRatioFrameLayout.RESIZE_MODE_FIT,
     val availableVideoTracks: List<VideoTrackOption> = emptyList(),
     val selectedVideoTrack: VideoTrackOption? = null,
     val availableAudioTracks: List<AudioTrackOption> = emptyList(),
@@ -105,6 +108,7 @@ class TvPlayerManager(
     private var exoPlayer: ExoPlayer? = null
     private var retryJob: Job? = null
     private var osdHideJob: Job? = null
+    private var miniSurfingHideJob: Job? = null
 
     // DRM state tracking (ported from jiotv_go_app OmniPlayerScreen)
     private var useDrm: Boolean = true
@@ -495,6 +499,43 @@ class TvPlayerManager(
         _playbackState.value = _playbackState.value.copy(isOsdVisible = false)
     }
 
+    /**
+     * Displays compact Mini Channel Surfing Banner (pill) and auto-hides after duration.
+     */
+    fun showMiniSurfingTemporarily(durationMs: Long = 3500L) {
+        _playbackState.value = _playbackState.value.copy(
+            isMiniSurfingVisible = true,
+            isOsdVisible = false
+        )
+        miniSurfingHideJob?.cancel()
+        miniSurfingHideJob = scope.launch {
+            delay(durationMs)
+            _playbackState.value = _playbackState.value.copy(isMiniSurfingVisible = false)
+        }
+    }
+
+    fun hideMiniSurfing() {
+        miniSurfingHideJob?.cancel()
+        _playbackState.value = _playbackState.value.copy(isMiniSurfingVisible = false)
+    }
+
+    /**
+     * Cycles through AspectRatio modes: FIT -> FILL (Stretch) -> ZOOM (Crop 16:9) -> FIT.
+     */
+    fun toggleAspectRatio(): Int {
+        val nextMode = when (_playbackState.value.resizeMode) {
+            AspectRatioFrameLayout.RESIZE_MODE_FIT -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+            AspectRatioFrameLayout.RESIZE_MODE_FILL -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+            else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+        }
+        _playbackState.value = _playbackState.value.copy(resizeMode = nextMode)
+        return nextMode
+    }
+
+    fun setResizeMode(mode: Int) {
+        _playbackState.value = _playbackState.value.copy(resizeMode = mode)
+    }
+
     private fun scheduleRetry() {
         retryJob?.cancel()
         retryJob = scope.launch(Dispatchers.Main) {
@@ -672,6 +713,7 @@ class TvPlayerManager(
 
     fun release() {
         osdHideJob?.cancel()
+        miniSurfingHideJob?.cancel()
         retryJob?.cancel()
         exoPlayer?.release()
         exoPlayer = null

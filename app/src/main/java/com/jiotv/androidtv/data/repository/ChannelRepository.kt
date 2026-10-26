@@ -47,6 +47,7 @@ class ChannelRepository(
     val error: Flow<String?> = _error.asStateFlow()
 
     val favorites: Flow<Set<String>> = appPreferences.favoritesFlow
+    val recentChannelIds: Flow<List<String>> = appPreferences.recentChannelIdsFlow
     val loggedInMobile: Flow<String?> = appPreferences.loggedInMobileFlow
     val enabledLanguages: Flow<Set<String>> = appPreferences.enabledLanguagesFlow
 
@@ -107,6 +108,7 @@ class ChannelRepository(
         if (rawCombinedChannels.isEmpty()) return
 
         val favs = appPreferences.favoritesFlow.first()
+        val recents = appPreferences.recentChannelIdsFlow.first()
         val enabledLangs = appPreferences.enabledLanguagesFlow.first()
 
         val filtered = if (enabledLangs.isEmpty()) {
@@ -119,7 +121,7 @@ class ChannelRepository(
             channel.copy(isFavorite = favs.contains(channel.id))
         }
 
-        val organized = ChannelFilter.organizeCategories(enrichedChannels, favs)
+        val organized = ChannelFilter.organizeCategories(enrichedChannels, favs, recents)
         _categories.value = organized
         val allFromCats = organized.find { it.id == "all_channels" }?.channels ?: enrichedChannels
         _channels.value = allFromCats
@@ -298,13 +300,17 @@ class ChannelRepository(
     suspend fun toggleFavorite(channelId: String) {
         appPreferences.toggleFavorite(channelId)
         val favs = appPreferences.favoritesFlow.first()
+        val recents = appPreferences.recentChannelIdsFlow.first()
         _channels.value = _channels.value.map {
             if (it.id == channelId) it.copy(isFavorite = favs.contains(it.id)) else it
         }
-        _categories.value = ChannelFilter.organizeCategories(_channels.value, favs)
+        _categories.value = ChannelFilter.organizeCategories(_channels.value, favs, recents)
     }
 
     suspend fun saveLastPlayed(channelId: String) {
-        appPreferences.saveLastPlayedChannel(channelId)
+        appPreferences.recordRecentChannel(channelId)
+        val favs = appPreferences.favoritesFlow.first()
+        val recents = appPreferences.recentChannelIdsFlow.first()
+        _categories.value = ChannelFilter.organizeCategories(_channels.value, favs, recents)
     }
 }

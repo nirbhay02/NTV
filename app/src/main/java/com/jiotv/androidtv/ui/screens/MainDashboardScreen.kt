@@ -48,6 +48,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.delay
 import androidx.compose.ui.res.painterResource
@@ -79,6 +81,20 @@ import com.jiotv.androidtv.ui.components.progress
 import com.jiotv.androidtv.ui.navigation.Screen
 import com.jiotv.androidtv.ui.theme.Jtv
 import com.jiotv.androidtv.ui.viewmodel.MainViewModel
+
+private fun getGenreColor(groupTitle: String, isZee: Boolean): Color {
+    val lower = groupTitle.lowercase()
+    return when {
+        isZee -> Color(0xFFA855F7)
+        lower.contains("sport") -> Color(0xFF10B981)
+        lower.contains("news") -> Color(0xFFEF4444)
+        lower.contains("movie") || lower.contains("cinema") -> Color(0xFFF59E0B)
+        lower.contains("music") -> Color(0xFFEC4899)
+        lower.contains("kid") || lower.contains("cartoon") -> Color(0xFF06B6D4)
+        lower.contains("infotainment") || lower.contains("documentary") -> Color(0xFF14B8A6)
+        else -> Color(0xFF3B82F6)
+    }
+}
 
 /**
  * Fenyx v2 "Everyday" 3-Pane Home Screen for Android TV:
@@ -441,6 +457,7 @@ fun MainDashboardScreen(
                                     contentType = { "channel_row" }
                                 ) { channel ->
                                     val isTarget = channel.id == targetChannelId
+                                    val genreColor = getGenreColor(channel.groupTitle, channel.isZee)
 
                                     JtvClickable(
                                         onClick = {
@@ -450,7 +467,7 @@ fun MainDashboardScreen(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .then(if (isTarget) Modifier.focusRequester(targetFocusRequester) else Modifier),
-                                        focusedScale = 1.0f,
+                                        focusedScale = 1.025f,
                                         container = c.s1.copy(alpha = 0.6f),
                                         focusedContainer = c.inv,
                                         shape = RoundedCornerShape(8.dp)
@@ -464,9 +481,22 @@ fun MainDashboardScreen(
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
+                                                .then(
+                                                    if (focused) Modifier.border(1.5.dp, genreColor.copy(alpha = 0.85f), RoundedCornerShape(8.dp))
+                                                    else Modifier
+                                                )
                                                 .padding(horizontal = 10.dp, vertical = 7.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
+                                            if (focused) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .width(3.dp)
+                                                        .height(20.dp)
+                                                        .background(genreColor, RoundedCornerShape(2.dp))
+                                                )
+                                                Spacer(Modifier.width(6.dp))
+                                            }
                                             // Channel number badge
                                             NumberBlock(
                                                 number = channel.number,
@@ -544,12 +574,32 @@ fun MainDashboardScreen(
 
                         // ── Pane 3: Right Detail & Live Preview Card (Weight 1f) ──
                         val selected = focusedChannel ?: displayedChannels.firstOrNull()
+                        val selectedGenreColor = if (selected != null) getGenreColor(selected.groupTitle, selected.isZee) else c.acc
 
                         Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight()
-                                .background(c.s1, RoundedCornerShape(12.dp))
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(c.s1)
+                                .background(
+                                    Brush.radialGradient(
+                                        colors = listOf(
+                                            selectedGenreColor.copy(alpha = 0.22f),
+                                            c.s1.copy(alpha = 0.65f),
+                                            Color.Transparent
+                                        ),
+                                        center = Offset(Float.POSITIVE_INFINITY, 0f),
+                                        radius = 800f
+                                    )
+                                )
+                                .border(
+                                    width = 1.dp,
+                                    brush = Brush.horizontalGradient(
+                                        colors = listOf(c.line, selectedGenreColor.copy(alpha = 0.35f))
+                                    ),
+                                    shape = RoundedCornerShape(14.dp)
+                                )
                                 .padding(16.dp)
                         ) {
                             if (selected != null) {
@@ -651,9 +701,11 @@ fun MainDashboardScreen(
                                         Spacer(Modifier.height(16.dp))
 
                                         // Current Program Card with real-time EPG
-                                        val currentEpg = remember(selected.id, epgMap.size, now) {
-                                            viewModel.getCurrentProgram(selected.id)
+                                        val nowNext = remember(selected.id, epgMap.size, now) {
+                                            viewModel.getNowNext(selected.id)
                                         }
+                                        val currentEpg = nowNext.now ?: viewModel.getCurrentProgram(selected.id)
+                                        val nextEpg = nowNext.next
                                         val programTitle = currentEpg?.title?.takeIf { it.isNotBlank() }
                                             ?: selected.currentProgram
                                             ?: "Live Broadcast"
@@ -729,6 +781,68 @@ fun MainDashboardScreen(
                                                     track = c.line,
                                                     height = 3.dp
                                                 )
+                                            }
+                                        }
+
+                                        // UP NEXT Program Card
+                                        if (nextEpg != null) {
+                                            Spacer(Modifier.height(10.dp))
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .background(c.s2.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+                                                    .border(1.dp, c.line.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                                                    .padding(12.dp)
+                                            ) {
+                                                Column {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .size(7.dp)
+                                                                    .background(selectedGenreColor, CircleShape)
+                                                            )
+                                                            Spacer(Modifier.width(6.dp))
+                                                            Text(
+                                                                text = "UP NEXT",
+                                                                style = textStyle(10.sp, FontWeight.Bold),
+                                                                color = selectedGenreColor
+                                                            )
+                                                        }
+                                                        if (nextEpg.startEpochMs > 0) {
+                                                            Text(
+                                                                text = formatTimeShort(nextEpg.startEpochMs),
+                                                                style = textStyle(10.sp, FontWeight.Medium),
+                                                                color = c.t3
+                                                            )
+                                                        }
+                                                    }
+
+                                                    Spacer(Modifier.height(4.dp))
+
+                                                    Text(
+                                                        text = nextEpg.title,
+                                                        style = textStyle(14.sp, FontWeight.SemiBold),
+                                                        color = c.tx,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+
+                                                    if (!nextEpg.description.isNullOrBlank()) {
+                                                        Spacer(Modifier.height(2.dp))
+                                                        Text(
+                                                            text = nextEpg.description,
+                                                            style = textStyle(11.sp, FontWeight.Normal),
+                                                            color = c.t3,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
+                                                        )
+                                                    }
+                                                }
                                             }
                                         }
                                     }

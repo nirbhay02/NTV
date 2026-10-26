@@ -1,4 +1,4 @@
-# NTV for Android TV (v1.2.2) 📺
+# NTV for Android TV (v1.3) 📺
 
 A high-performance, native Android TV application built with **Kotlin** and **Jetpack Compose for TV (Material 3)**. It embeds the streaming server directly inside the Android application itself, completely eliminating any requirement for external PCs, Termux, Docker, or secondary network servers.
 

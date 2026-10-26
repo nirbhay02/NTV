@@ -16,6 +16,7 @@ import com.jiotv.androidtv.player.AudioTrackOption
 import com.jiotv.androidtv.player.PlayerPlaybackState
 import com.jiotv.androidtv.player.TvPlayerManager
 import com.jiotv.androidtv.player.VideoTrackOption
+import com.jiotv.androidtv.ui.components.NowNext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,12 +38,19 @@ class PlayerViewModel(
     val epgMap: StateFlow<Map<String, List<EpgProgram>>> = epgRepository.epgMap
 
     fun getCurrentProgram(channelId: String): EpgProgram? = epgRepository.getCurrentProgram(channelId)
+    fun getNowNext(channelId: String): NowNext = epgRepository.getNowNext(channelId)
 
     private var playerManager: TvPlayerManager? = null
     private var playbackStateCollectorJob: Job? = null
 
     private val _playbackState = MutableStateFlow(PlayerPlaybackState())
     val playbackState: StateFlow<PlayerPlaybackState> = _playbackState.asStateFlow()
+
+    private val _previousChannel = MutableStateFlow<Channel?>(null)
+    val previousChannel: StateFlow<Channel?> = _previousChannel.asStateFlow()
+
+    private val _recentChannels = MutableStateFlow<List<Channel>>(emptyList())
+    val recentChannels: StateFlow<List<Channel>> = _recentChannels.asStateFlow()
 
     private val _exoPlayer = MutableStateFlow<ExoPlayer?>(null)
     val exoPlayer: StateFlow<ExoPlayer?> = _exoPlayer.asStateFlow()
@@ -60,6 +68,10 @@ class PlayerViewModel(
 
     private val _numericInput = MutableStateFlow("")
     val numericInput: StateFlow<String> = _numericInput.asStateFlow()
+
+    private val _numericMatchedChannel = MutableStateFlow<Channel?>(null)
+    val numericMatchedChannel: StateFlow<Channel?> = _numericMatchedChannel.asStateFlow()
+
     private var numericInputJob: Job? = null
 
     fun onNumberKeyPressed(digit: Int) {
@@ -67,19 +79,35 @@ class PlayerViewModel(
         val current = _numericInput.value
         val updated = if (current.length < 4) current + digit else digit.toString()
         _numericInput.value = updated
-        showOsd()
+
+        val channelNum = updated.toIntOrNull()
+        val match = if (channelNum != null) {
+            allChannels.value.find { it.number == channelNum }
+                ?: allChannels.value.find { it.id == channelNum.toString() }
+                ?: allChannels.value.find { it.number.toString().startsWith(updated) }
+        } else null
+        _numericMatchedChannel.value = match
 
         numericInputJob = viewModelScope.launch {
-            delay(1200) // 1.2s delay for multi-digit entry
-            val channelNum = _numericInput.value.toIntOrNull()
-            _numericInput.value = ""
-            if (channelNum != null) {
-                val match = allChannels.value.find { it.number == channelNum }
+            delay(1300) // 1.3s delay for multi-digit entry
+            confirmNumericInput()
+        }
+    }
+
+    fun confirmNumericInput() {
+        numericInputJob?.cancel()
+        val channelNum = _numericInput.value.toIntOrNull()
+        val target = _numericMatchedChannel.value
+            ?: if (channelNum != null) {
+                allChannels.value.find { it.number == channelNum }
                     ?: allChannels.value.find { it.id == channelNum.toString() }
-                if (match != null) {
-                    playChannel(match)
-                }
-            }
+            } else null
+
+        _numericInput.value = ""
+        _numericMatchedChannel.value = null
+        if (target != null) {
+            playChannel(target)
+            showMiniSurfing()
         }
     }
 
@@ -126,11 +154,17 @@ class PlayerViewModel(
 
     fun playChannel(channel: Channel) {
         channelSwitchJob?.cancel()
-        // Immediately show the new channel in OSD for snappy set-top box style zapping
+        val curr = _playbackState.value.currentChannel
+        if (curr != null && curr.id != channel.id) {
+            _previousChannel.value = curr
+            val updated = (listOf(curr) + _recentChannels.value.filter { it.id != curr.id && it.id != channel.id }).take(8)
+            _recentChannels.value = updated
+        }
+
+        // Immediately show the new channel in playback state
         _playbackState.value = _playbackState.value.copy(
             currentChannel = channel,
-            isBuffering = true,
-            isOsdVisible = true
+            isBuffering = true
         )
 
         channelSwitchJob = viewModelScope.launch {
@@ -160,12 +194,19 @@ class PlayerViewModel(
         }
     }
 
+    fun switchToPreviousChannel() {
+        val prev = _previousChannel.value ?: return
+        playChannel(prev)
+        showMiniSurfing()
+    }
+
     fun switchNextChannel() {
         val currentId = _playbackState.value.currentChannel?.id
             ?: playerManager?.playbackState?.value?.currentChannel?.id
             ?: return
         val nextChannel = channelRepository.getNextChannel(currentId, activeCategoryId) ?: return
         playChannel(nextChannel)
+        showMiniSurfing()
     }
 
     fun switchPreviousChannel() {
@@ -174,6 +215,19 @@ class PlayerViewModel(
             ?: return
         val prevChannel = channelRepository.getPreviousChannel(currentId, activeCategoryId) ?: return
         playChannel(prevChannel)
+        showMiniSurfing()
+    }
+
+    fun showMiniSurfing(durationMs: Long = 3500L) {
+        playerManager?.showMiniSurfingTemporarily(durationMs)
+    }
+
+    fun hideMiniSurfing() {
+        playerManager?.hideMiniSurfing()
+    }
+
+    fun toggleAspectRatio(): Int {
+        return playerManager?.toggleAspectRatio() ?: 0
     }
 
     fun togglePlayPause() {
