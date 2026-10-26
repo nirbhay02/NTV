@@ -545,7 +545,7 @@ fun MainDashboardScreen(
                                                     }
                                                 }
 
-                                                val chProg = viewModel.getCurrentProgram(channel.id)?.title
+                                                val chProg = viewModel.getCurrentProgram(channel.id, channel.name)?.title
                                                     ?: channel.currentProgram
                                                     ?: "${channel.language} • ${channel.groupTitle}"
                                                 Text(
@@ -702,9 +702,9 @@ fun MainDashboardScreen(
 
                                         // Current Program Card with real-time EPG
                                         val nowNext = remember(selected.id, epgMap.size, now) {
-                                            viewModel.getNowNext(selected.id)
+                                            viewModel.getNowNext(selected.id, selected.name)
                                         }
-                                        val currentEpg = nowNext.now ?: viewModel.getCurrentProgram(selected.id)
+                                        val currentEpg = nowNext.now ?: viewModel.getCurrentProgram(selected.id, selected.name)
                                         val nextEpg = nowNext.next
                                         val programTitle = currentEpg?.title?.takeIf { it.isNotBlank() }
                                             ?: selected.currentProgram

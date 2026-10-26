@@ -440,7 +440,7 @@ fun PlayerScreen(
             ) {
                 playbackState.currentChannel?.let { channel ->
                     val epgNowNext = remember(channel.id, now) {
-                        viewModel.getNowNext(channel.id)
+                        viewModel.getNowNext(channel.id, channel.name)
                     }
                     MiniChannelSurfingBanner(
                         channel = channel,
@@ -528,7 +528,7 @@ private fun FenyxPlayerOsdOverlay(
     val c = Jtv.colors
     val epgMap by viewModel.epgMap.collectAsState()
     val currentEpg = remember(channel.id, epgMap.size, now) {
-        viewModel.getCurrentProgram(channel.id)
+        viewModel.getCurrentProgram(channel.id, channel.name)
     }
     val programTitle = currentEpg?.title?.takeIf { it.isNotBlank() }
         ?: channel.currentProgram
@@ -1022,7 +1022,7 @@ private fun QuickChannelItem(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                val chProg = viewModel.getCurrentProgram(channel.id)?.title ?: channel.groupTitle
+                val chProg = viewModel.getCurrentProgram(channel.id, channel.name)?.title ?: channel.groupTitle
                 Text(
                     text = chProg,
                     style = textStyle(11.sp),

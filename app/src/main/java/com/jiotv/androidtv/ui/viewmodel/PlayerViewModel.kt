@@ -38,8 +38,11 @@ class PlayerViewModel(
 
     val epgMap: StateFlow<Map<String, List<EpgProgram>>> = epgRepository.epgMap
 
-    fun getCurrentProgram(channelId: String): EpgProgram? = epgRepository.getCurrentProgram(channelId)
-    fun getNowNext(channelId: String): NowNext = epgRepository.getNowNext(channelId)
+    fun getCurrentProgram(channelId: String, channelName: String? = null): EpgProgram? =
+        epgRepository.getCurrentProgram(channelId, channelName = channelName)
+
+    fun getNowNext(channelId: String, channelName: String? = null): NowNext =
+        epgRepository.getNowNext(channelId, channelName = channelName)
 
     private var playerManager: TvPlayerManager? = null
     private var playbackStateCollectorJob: Job? = null

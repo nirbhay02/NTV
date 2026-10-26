@@ -32,8 +32,11 @@ class MainViewModel(
     val epgMap: StateFlow<Map<String, List<EpgProgram>>> = epgRepository.epgMap
     val isEpgSyncing: StateFlow<Boolean> = epgRepository.isSyncing
 
-    fun getCurrentProgram(channelId: String): EpgProgram? = epgRepository.getCurrentProgram(channelId)
-    fun getNowNext(channelId: String): NowNext = epgRepository.getNowNext(channelId)
+    fun getCurrentProgram(channelId: String, channelName: String? = null): EpgProgram? =
+        epgRepository.getCurrentProgram(channelId, channelName = channelName)
+
+    fun getNowNext(channelId: String, channelName: String? = null): NowNext =
+        epgRepository.getNowNext(channelId, channelName = channelName)
 
     fun refreshEpg(force: Boolean = true) {
         viewModelScope.launch {

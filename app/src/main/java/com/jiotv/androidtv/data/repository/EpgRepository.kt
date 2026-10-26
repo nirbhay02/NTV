@@ -77,9 +77,10 @@ class EpgRepository(
             val age = now - lastSync
             val isExpired = age >= 24L * 3600_000L
             val isCacheEmpty = _epgMap.value.isEmpty()
+            val isInsufficient = _epgMap.value.size < 500
 
-            if (isExpired || isCacheEmpty) {
-                Log.d(tag, "EPG cache requires update (age: ${age / 3600_000}h, empty: $isCacheEmpty). Syncing...")
+            if (isExpired || isCacheEmpty || isInsufficient) {
+                Log.d(tag, "EPG cache requires update (age: ${age / 3600_000}h, empty: $isCacheEmpty, count: ${_epgMap.value.size}). Syncing...")
                 refreshEpg(force = false)
             } else {
                 Log.d(tag, "EPG cache is fresh (age: ${age / 3600_000}h). Loaded ${_epgMap.value.size} channels.")
@@ -232,7 +233,7 @@ class EpgRepository(
     }
 
     private fun computeCurrentProgram(channelId: String, timestamp: Long, channelName: String? = null): EpgProgram? {
-        val programs = getProgramsForChannel(channelId, channelName)
+        val programs = getProgramsForChannel(channelId, channelName, project = true)
         if (programs.isEmpty()) return null
 
         // 1. Direct match: program actively running right now
@@ -245,30 +246,52 @@ class EpgRepository(
             return upcoming
         }
 
-        // 3. 24h schedule projection fallback:
-        // Community EPG feeds often update once daily or have yesterday's programs.
-        // If a program aired 24h ago in this time slot on this channel, project it to today.
-        val oneDayMs = 24 * 3600_000L
-        val shiftedHit = programs.firstOrNull { prog ->
-            val s24 = prog.startEpochMs + oneDayMs
-            val e24 = prog.stopEpochMs + oneDayMs
-            timestamp in s24 until e24
-        }
-        if (shiftedHit != null) {
-            return shiftedHit.copy(
-                startEpochMs = shiftedHit.startEpochMs + oneDayMs,
-                stopEpochMs = shiftedHit.stopEpochMs + oneDayMs
-            )
-        }
-
-        // 4. Fallback to latest program if it ended recently or first available
+        // 3. Fallback to latest program if it ended recently or first available
         return programs.lastOrNull { it.startEpochMs <= timestamp } ?: programs.firstOrNull()
     }
 
     /**
-     * Returns the full list of programs available for a channel.
+     * Projects a channel's program schedule to the current day if the EPG feed is from yesterday or 2 days ago.
+     * TV channels air fixed daily recurring time-slot programming (e.g. daily news bulletins, serials, prime time shows).
+     * Shifting the time stamps by integer multiples of 24h ensures Now/Next displays real, accurate schedule data 24/7.
      */
-    fun getProgramsForChannel(channelId: String, channelName: String? = null): List<EpgProgram> {
+    fun projectProgramsToToday(programs: List<EpgProgram>, now: Long = System.currentTimeMillis()): List<EpgProgram> {
+        if (programs.isEmpty()) return emptyList()
+        val oneDayMs = 24 * 3600_000L
+
+        // If there is already a program active now or starting in the future, no shift needed
+        val hasActiveOrFuture = programs.any { it.stopEpochMs > now }
+        if (hasActiveOrFuture) return programs
+
+        // Feed ended in the past; calculate how many 24-hour periods to shift forward
+        val maxStop = programs.maxOfOrNull { it.stopEpochMs } ?: return programs
+        if (maxStop >= now) return programs
+
+        val diffMs = now - maxStop
+        val daysToShift = (diffMs / oneDayMs) + 1
+        val shiftMs = daysToShift * oneDayMs
+
+        return programs.map { prog ->
+            prog.copy(
+                startEpochMs = prog.startEpochMs + shiftMs,
+                stopEpochMs = prog.stopEpochMs + shiftMs
+            )
+        }
+    }
+
+    /**
+     * Returns the full list of programs available for a channel, projected to the current date by default.
+     */
+    fun getProgramsForChannel(
+        channelId: String,
+        channelName: String? = null,
+        project: Boolean = true
+    ): List<EpgProgram> {
+        val raw = getRawProgramsForChannel(channelId, channelName)
+        return if (project) projectProgramsToToday(raw) else raw
+    }
+
+    private fun getRawProgramsForChannel(channelId: String, channelName: String? = null): List<EpgProgram> {
         val map = _epgMap.value
         if (map.isEmpty()) return emptyList()
 
@@ -289,12 +312,24 @@ class EpgRepository(
             }
         }
 
-        // 4. Normalized display name match
+        // 4. Normalized display name match with intelligent aliases
         if (!channelName.isNullOrBlank()) {
             val cleanName = channelName.lowercase().replace(Regex("[^a-z0-9]"), "")
-            val mappedId = _nameToIdMap.value[cleanName]
-            if (mappedId != null) {
-                map[mappedId]?.let { if (it.isNotEmpty()) return it }
+            val candidates = listOf(
+                cleanName,
+                cleanName.removeSuffix("hd"),
+                cleanName + "hd",
+                cleanName.replace("sports", ""),
+                cleanName.replace("sports", "").removeSuffix("hd"),
+                cleanName.replace("sportsten", "ten"),
+                cleanName.replace("ten", "sportsten"),
+                cleanName.replace("ten", "sportsten").removeSuffix("hd")
+            )
+            for (cand in candidates) {
+                val mappedId = _nameToIdMap.value[cand]
+                if (mappedId != null) {
+                    map[mappedId]?.let { if (it.isNotEmpty()) return it }
+                }
             }
         }
 
@@ -304,8 +339,12 @@ class EpgRepository(
     /**
      * Returns the Now/Next/Later guide block for a channel.
      */
-    fun getNowNext(channelId: String, timestamp: Long = System.currentTimeMillis()): NowNext {
-        val programs = getProgramsForChannel(channelId)
+    fun getNowNext(
+        channelId: String,
+        timestamp: Long = System.currentTimeMillis(),
+        channelName: String? = null
+    ): NowNext {
+        val programs = getProgramsForChannel(channelId, channelName, project = true)
         return nowNext(programs, timestamp)
     }
 

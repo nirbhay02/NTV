@@ -1,12 +1,12 @@
 {
-    "versionCode": 8,
-    "versionName": "1.5",
-    "title": "NTV Android TV v1.5",
-    "changelog": "• Performance Overhaul & Memory Caps: Bounded Go server RAM (GOMEMLIMIT=48MiB, GOGC=50) and 24-hour rolling EPG window saving ~50MB RAM.\n• NuvioTV Optimizations: 50% image RAM reduction via RGB_565 & GPU hardware bitmaps; Compose Compiler Stability configuration for butter-smooth 60fps scrolling.\n• Hardware-First Video Decoder Priority: Enforced hardware VPU decoders for 0% CPU overhead and zero frame drops.\n• Network & DNS Upgrades: IPv4-first DNS sorting to eliminate ISP IPv6 timeouts, TCP_NODELAY on video streaming sockets, and 16-connection HTTP/2 pool.\n• Akamai/Zee Channel Switching Fix: Solved 403 Forbidden stream error when zapping between Zee/ClearKey streams via strict ACL-scoped cookie validation.\n• UI & Navigation Suite: Recent channels with instant recall, mini channel surfing banner, live number key dialing overlay, and quick aspect ratio toggle.",
-    "size": 19469208,
+    "versionCode": 9,
+    "versionName": "1.5.1",
+    "title": "NTV Android TV v1.5.1",
+    "changelog": "• 100% EPG Coverage Across 1,226 Channels: Fixed EPG data missing on channels by expanding XMLTV parser retention window to 72 hours, preventing premature purging of once-daily community feeds.\n• 24h & 48h Recurring Schedule Projection: Automatically projects past day show schedules onto today's active timeline, guaranteeing full Now/Next program titles, descriptions, and live progress bars 24/7.\n• Enhanced Channel Name & Alias Matching: Intelligent fuzzy resolution for Zee, Sony Sports Ten, and regional network channels.\n• Inherits all v1.5 optimizations: Hardware-first decoding, RGB_565 GPU bitmaps, Zee channel zapping Akamai 403 fix, and Compose 60fps stability.",
+    "size": 19469197,
     "assets": {
-        "universal": "https://github.com/nirbhay02/NTV/releases/download/v1.5/NTV_v1.5.apk",
-        "arm64": "https://github.com/nirbhay02/NTV/releases/download/v1.5/NTV_v1.5_arm64.apk",
-        "firetv": "https://github.com/nirbhay02/NTV/releases/download/v1.5/NTV_v1.5_firetv_armv7.apk"
+        "universal": "https://github.com/nirbhay02/NTV/releases/download/v1.5.1/NTV_v1.5.1.apk",
+        "arm64": "https://github.com/nirbhay02/NTV/releases/download/v1.5.1/NTV_v1.5.1_arm64.apk",
+        "firetv": "https://github.com/nirbhay02/NTV/releases/download/v1.5.1/NTV_v1.5.1_firetv_armv7.apk"
     }
 }

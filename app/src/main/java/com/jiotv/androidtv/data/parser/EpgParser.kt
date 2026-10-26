@@ -19,12 +19,12 @@ class EpgParser {
     /**
      * Parses XMLTV XML/GZIP input stream into an [EpgData] containing programs and channel display names.
      */
-    // [PERF-OPT-4] Rolling 24-hour window filter: drops past expired & far-future schedules to save 40MB+ RAM
+    // Rolling 72-hour retention window: preserves past 48-72h schedule data for 24h recurring time slot projection
     fun parseData(
         inputStream: InputStream,
         isGzip: Boolean = false,
-        minStopEpoch: Long = System.currentTimeMillis() - 2 * 3600_000L,
-        maxStartEpoch: Long = System.currentTimeMillis() + 24 * 3600_000L
+        minStopEpoch: Long = System.currentTimeMillis() - 72 * 3600_000L,
+        maxStartEpoch: Long = System.currentTimeMillis() + 48 * 3600_000L
     ): EpgData {
         val programsByChannel = mutableMapOf<String, MutableList<EpgProgram>>()
         val nameToChannelId = mutableMapOf<String, String>()
@@ -56,6 +56,16 @@ class EpgParser {
                                 if (currentChannelTagId != null && dName.isNotBlank()) {
                                     val cleanName = dName.lowercase().replace(Regex("[^a-z0-9]"), "")
                                     nameToChannelId[cleanName] = currentChannelTagId
+                                    if (cleanName.endsWith("hd")) {
+                                        nameToChannelId.putIfAbsent(cleanName.removeSuffix("hd"), currentChannelTagId)
+                                    }
+                                    if (cleanName.contains("sports")) {
+                                        nameToChannelId.putIfAbsent(cleanName.replace("sports", ""), currentChannelTagId)
+                                        nameToChannelId.putIfAbsent(cleanName.replace("sports", "").removeSuffix("hd"), currentChannelTagId)
+                                    }
+                                    if (cleanName.contains("sportsten")) {
+                                        nameToChannelId.putIfAbsent(cleanName.replace("sportsten", "ten"), currentChannelTagId)
+                                    }
                                 }
                             }
                             "programme" -> {
@@ -104,8 +114,8 @@ class EpgParser {
     fun parse(
         inputStream: InputStream,
         isGzip: Boolean = false,
-        minStopEpoch: Long = System.currentTimeMillis() - 2 * 3600_000L,
-        maxStartEpoch: Long = System.currentTimeMillis() + 24 * 3600_000L
+        minStopEpoch: Long = System.currentTimeMillis() - 72 * 3600_000L,
+        maxStartEpoch: Long = System.currentTimeMillis() + 48 * 3600_000L
     ): Map<String, List<EpgProgram>> = parseData(inputStream, isGzip, minStopEpoch, maxStartEpoch).programsByChannel
 
     companion object {
