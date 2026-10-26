@@ -139,6 +139,19 @@ class TvPlayerManager(
         }.apply {
             setEnableDecoderFallback(true)
             setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+            // [NUVIO-OPT-3] Hardware-First Video Decoder Priority: forces dedicated hardware VPU decoders first
+            setMediaCodecSelector { mimeType, requiresSecureDecoder, requiresTunnelingDecoder ->
+                val decoders = androidx.media3.exoplayer.mediacodec.MediaCodecSelector.DEFAULT.getDecoderInfos(
+                    mimeType, requiresSecureDecoder, requiresTunnelingDecoder
+                )
+                if (mimeType.startsWith("video/")) {
+                    decoders.sortedBy { decoder ->
+                        if (!decoder.hardwareAccelerated || decoder.name.startsWith("c2.android.") || decoder.name.startsWith("omx.google.")) 1 else 0
+                    }
+                } else {
+                    decoders
+                }
+            }
         }
 
         // Sub-second zapping load control with robust live playback cushion
@@ -314,6 +327,11 @@ class TvPlayerManager(
         }
     }
 
+    // [PERF-OPT-5] Non-blocking pre-warming of adjacent channel stream connection
+    fun warmUpStream(url: String) {
+        proxyHandler.warmUpStream(url)
+    }
+
     /**
      * Normalizes playback URL and configures MediaItem/MediaSource with jiotv_go_app mechanics.
      */
@@ -327,6 +345,11 @@ class TvPlayerManager(
             useDrm = true
             drmRetryCount = 0
         }
+
+        // Clean up previous channel state & stale cookies (prevents cross-channel 403 on Akamai/Zee)
+        player.stop()
+        player.clearMediaItems()
+        proxyHandler.clearCookies()
 
         _playbackState.value = _playbackState.value.copy(
             currentChannel = channel,

@@ -166,6 +166,9 @@ class EmbeddedServerManager private constructor(private val context: Context) {
                     put("JIOTV_GO_PORT", port.toString())
                     put("JIOTV_GO_HOST", "0.0.0.0")
                     put("GODEBUG", "netdns=cgo")
+                    // [PERF-OPT-1] Constrain embedded Go runtime memory to safeguard budget TV RAM
+                    put("GOMEMLIMIT", "48MiB")
+                    put("GOGC", "50")
                     val existingPath = get("PATH") ?: "/system/bin:/system/xbin"
                     put("PATH", "$existingPath:${context.filesDir.absolutePath}/bin")
                 }

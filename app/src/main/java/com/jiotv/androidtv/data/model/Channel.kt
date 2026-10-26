@@ -1,8 +1,12 @@
 package com.jiotv.androidtv.data.model
 
+import androidx.compose.runtime.Immutable
+
 /**
  * Represents a live television channel parsed from the jiotv_go M3U playlist.
  */
+// [NUVIO-OPT-2] Mark model @Immutable so Compose skips unnecessary card recompositions during scrolling
+@Immutable
 data class Channel(
     val id: String,
     val name: String,

@@ -19,10 +19,12 @@ class EpgParser {
     /**
      * Parses XMLTV XML/GZIP input stream into an [EpgData] containing programs and channel display names.
      */
+    // [PERF-OPT-4] Rolling 24-hour window filter: drops past expired & far-future schedules to save 40MB+ RAM
     fun parseData(
         inputStream: InputStream,
         isGzip: Boolean = false,
-        minStopEpoch: Long = System.currentTimeMillis() - 36 * 3600_000L
+        minStopEpoch: Long = System.currentTimeMillis() - 2 * 3600_000L,
+        maxStartEpoch: Long = System.currentTimeMillis() + 24 * 3600_000L
     ): EpgData {
         val programsByChannel = mutableMapOf<String, MutableList<EpgProgram>>()
         val nameToChannelId = mutableMapOf<String, String>()
@@ -75,7 +77,8 @@ class EpgParser {
                         if (tagName == "channel") {
                             currentChannelTagId = null
                         } else if (tagName == "programme" && currentProgrammeChannelId != null) {
-                            if (minStopEpoch <= 0L || currentStopEpoch >= minStopEpoch) {
+                            if ((minStopEpoch <= 0L || currentStopEpoch >= minStopEpoch) &&
+                                (maxStartEpoch <= 0L || currentStartEpoch <= maxStartEpoch)) {
                                 val program = EpgProgram(
                                     channelId = currentProgrammeChannelId,
                                     title = currentTitle.trim(),
@@ -101,8 +104,9 @@ class EpgParser {
     fun parse(
         inputStream: InputStream,
         isGzip: Boolean = false,
-        minStopEpoch: Long = System.currentTimeMillis() - 36 * 3600_000L
-    ): Map<String, List<EpgProgram>> = parseData(inputStream, isGzip, minStopEpoch).programsByChannel
+        minStopEpoch: Long = System.currentTimeMillis() - 2 * 3600_000L,
+        maxStartEpoch: Long = System.currentTimeMillis() + 24 * 3600_000L
+    ): Map<String, List<EpgProgram>> = parseData(inputStream, isGzip, minStopEpoch, maxStartEpoch).programsByChannel
 
     companion object {
         /**

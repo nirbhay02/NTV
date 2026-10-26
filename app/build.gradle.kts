@@ -13,8 +13,8 @@ android {
         minSdk = 21
         // Required for local Go binary execution on Android TV
         targetSdk = 28
-        versionCode = 6
-        versionName = "1.3"
+        versionCode = 8
+        versionName = "1.5"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -65,6 +65,11 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    // [NUVIO-OPT-2] Compose compiler stability configuration from NuvioTV
+    composeCompiler {
+        stabilityConfigurationFile = rootProject.file("compose_stability_config.conf")
     }
 
     lint {

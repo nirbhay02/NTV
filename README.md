@@ -1,6 +1,11 @@
-# NTV for Android TV (v1.3) 📺
+# NTV for Android TV & Tablet (v1.5) 📺
 
-A high-performance, native Android TV application built with **Kotlin** and **Jetpack Compose for TV (Material 3)**. It embeds the streaming server directly inside the Android application itself, completely eliminating any requirement for external PCs, Termux, Docker, or secondary network servers.
+[![Release](https://img.shields.io/badge/Release-v1.5-blue.svg)](https://github.com/nirbhay02/NTV/releases/tag/v1.5)
+[![Universal APK](https://img.shields.io/badge/Download-Universal_APK-success.svg)](https://github.com/nirbhay02/NTV/releases/download/v1.5/NTV_v1.5.apk)
+[![ARM64 APK](https://img.shields.io/badge/Download-ARM64_APK-informational.svg)](https://github.com/nirbhay02/NTV/releases/download/v1.5/NTV_v1.5_arm64.apk)
+[![Fire TV APK](https://img.shields.io/badge/Download-Fire_TV_ARMv7-orange.svg)](https://github.com/nirbhay02/NTV/releases/download/v1.5/NTV_v1.5_firetv_armv7.apk)
+
+A high-performance, native Android TV and tablet application built with **Kotlin** and **Jetpack Compose for TV (Material 3)**. It embeds the streaming server directly inside the Android application itself, completely eliminating any requirement for external PCs, Termux, Docker, or secondary network servers.
 
 It automatically handles local process lifecycle management, broadcaster authentication token proxying (with special priority for **Zee Network channels** to prevent 403 Forbidden errors), and native streaming via **AndroidX Media3 ExoPlayer**.
 

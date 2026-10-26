@@ -1,8 +1,12 @@
 package com.jiotv.androidtv.data.model
 
+import androidx.compose.runtime.Immutable
+
 /**
  * Electronic Program Guide (EPG) metadata for TV schedule.
  */
+// [NUVIO-OPT-2] Mark model @Immutable so Compose skips unnecessary card recompositions during scrolling
+@Immutable
 data class EpgProgram(
     val channelId: String,
     val title: String,

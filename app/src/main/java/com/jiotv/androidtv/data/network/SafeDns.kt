@@ -54,7 +54,9 @@ object SafeDns : Dns {
         if (hostname == "localhost" || hostname == "127.0.0.1" || hostname.endsWith(".local") ||
             hostname.contains("jio.com") || hostname.contains("jio.dev") || hostname.contains("jiotv")
         ) {
-            return Dns.SYSTEM.lookup(hostname)
+            val addrs = Dns.SYSTEM.lookup(hostname)
+            // [NUVIO-OPT-4] IPv4-first ordering: prevents 2-3s IPv6 timeout latency on Indian ISPs
+            return addrs.sortedBy { if (it is java.net.Inet4Address) 0 else 1 }
         }
 
         try {
@@ -64,7 +66,8 @@ object SafeDns : Dns {
                 ip.startsWith("49.44.") || ip.startsWith("49.45.")
             }
             if (!isHijacked) {
-                return addresses
+                // [NUVIO-OPT-4] IPv4-first ordering
+                return addresses.sortedBy { if (it is java.net.Inet4Address) 0 else 1 }
             }
             Log.d(TAG, "Detected DNS hijacking (ISP blockpage IP) for $hostname. Falling back to DNS-over-HTTPS.")
         } catch (e: Exception) {
@@ -123,6 +126,6 @@ object SafeDns : Dns {
         }
 
         // Ultimate fallback
-        return Dns.SYSTEM.lookup(hostname)
+        return Dns.SYSTEM.lookup(hostname).sortedBy { if (it is java.net.Inet4Address) 0 else 1 }
     }
 }

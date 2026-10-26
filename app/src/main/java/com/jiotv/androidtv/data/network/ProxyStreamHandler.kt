@@ -6,10 +6,17 @@ import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import com.jiotv.androidtv.data.model.ServerConfig
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.ConnectionPool
 import okhttp3.Cookie
 import okhttp3.CookieJar
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
+import okhttp3.Request
+import okhttp3.Response
+import java.io.IOException
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.util.concurrent.ConcurrentHashMap
@@ -35,18 +42,57 @@ class ProxyStreamHandler(private val serverConfig: ServerConfig) {
 
     val cookieJar = object : CookieJar {
         override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
-            cookieStore.getOrPut(url.host) { mutableListOf() }.addAll(cookies)
+            val list = cookieStore.getOrPut(url.host) { mutableListOf() }
+            synchronized(list) {
+                for (c in cookies) {
+                    list.removeAll { it.name == c.name }
+                    list.add(c)
+                }
+            }
         }
 
         override fun loadForRequest(url: HttpUrl): List<Cookie> {
-            return cookieStore[url.host] ?: emptyList()
+            val list = cookieStore[url.host] ?: return emptyList()
+            return synchronized(list) {
+                list.filter { cookie ->
+                    if (!cookie.matches(url)) return@filter false
+                    // Akamai __hdnea__ token ACL verification:
+                    // Only send __hdnea__ cookie if request path matches its ACL, preventing cross-channel 403 blocks
+                    if (cookie.name == "__hdnea__" || cookie.value.contains("acl=")) {
+                        val acl = cookie.value.substringAfter("acl=").substringBefore("~").removeSuffix("*")
+                        if (acl.isNotEmpty() && !url.encodedPath.startsWith(acl)) {
+                            return@filter false
+                        }
+                    }
+                    true
+                }
+            }
         }
+    }
+
+    /**
+     * Clears all cached cookies so channel switches start with clean session state.
+     */
+    fun clearCookies() {
+        cookieStore.clear()
     }
 
     val okHttpClient: OkHttpClient by lazy {
         val builder = OkHttpClient.Builder()
+            // [PERF-OPT-3] Reusable connection pool & HTTP/2 for video chunk downloads
+            .connectionPool(ConnectionPool(16, 3, TimeUnit.MINUTES))
+            .protocols(listOf(Protocol.HTTP_2, Protocol.HTTP_1_1))
             .cookieJar(cookieJar)
             .dns(SafeDns)
+            // [NUVIO-OPT-4] TCP_NODELAY: disables Nagle's packet aggregation delay on video chunks
+            .socketFactory(object : javax.net.SocketFactory() {
+                private val delegate = javax.net.SocketFactory.getDefault()
+                override fun createSocket(): java.net.Socket = delegate.createSocket().apply { tcpNoDelay = true }
+                override fun createSocket(host: String?, port: Int): java.net.Socket = delegate.createSocket(host, port).apply { tcpNoDelay = true }
+                override fun createSocket(host: String?, port: Int, localHost: java.net.InetAddress?, localPort: Int): java.net.Socket = delegate.createSocket(host, port, localHost, localPort).apply { tcpNoDelay = true }
+                override fun createSocket(host: java.net.InetAddress?, port: Int): java.net.Socket = delegate.createSocket(host, port).apply { tcpNoDelay = true }
+                override fun createSocket(address: java.net.InetAddress?, port: Int, localAddress: java.net.InetAddress?, localPort: Int): java.net.Socket = delegate.createSocket(address, port, localAddress, localPort).apply { tcpNoDelay = true }
+            })
             .connectTimeout(25, TimeUnit.SECONDS)
             .readTimeout(25, TimeUnit.SECONDS)
             .writeTimeout(20, TimeUnit.SECONDS)
@@ -174,5 +220,23 @@ class ProxyStreamHandler(private val serverConfig: ServerConfig) {
             .setKeepPostFor302Redirects(true)
             .setConnectTimeoutMs(15000)
             .setReadTimeoutMs(20000)
+    }
+
+    // [PERF-OPT-5] Non-blocking pre-warming of adjacent stream connection
+    fun warmUpStream(streamUrl: String) {
+        if (streamUrl.isBlank()) return
+        try {
+            val target = serverConfig.resolveStreamUrl(streamUrl)
+            val request = Request.Builder()
+                .url(target)
+                .head()
+                .build()
+            okHttpClient.newCall(request).enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {}
+                override fun onResponse(call: Call, response: Response) {
+                    response.close()
+                }
+            })
+        } catch (_: Exception) {}
     }
 }

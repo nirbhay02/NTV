@@ -17,6 +17,7 @@ import com.jiotv.androidtv.player.PlayerPlaybackState
 import com.jiotv.androidtv.player.TvPlayerManager
 import com.jiotv.androidtv.player.VideoTrackOption
 import com.jiotv.androidtv.ui.components.NowNext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -191,6 +192,25 @@ class PlayerViewModel(
                 playerManager?.playChannel(resolvedChannel)
             }
             channelRepository.saveLastPlayed(resolvedChannel.id)
+            prewarmAdjacentChannels(resolvedChannel)
+        }
+    }
+
+    private var prefetchJob: Job? = null
+
+    // [PERF-OPT-5] Non-blocking pre-warming of adjacent channels for instant zapping
+    private fun prewarmAdjacentChannels(channel: Channel) {
+        prefetchJob?.cancel()
+        prefetchJob = viewModelScope.launch(Dispatchers.IO) {
+            delay(2500) // Delay until current channel is safely playing
+            val next = channelRepository.getNextChannel(channel.id, activeCategoryId)
+            val prev = channelRepository.getPreviousChannel(channel.id, activeCategoryId)
+            listOfNotNull(next, prev).forEach { adj ->
+                val isLocal = adj.streamUrl.contains("127.0.0.1") || adj.streamUrl.contains("localhost")
+                if (adj.streamUrl.isNotBlank() && !adj.isZee && isLocal) {
+                    playerManager?.warmUpStream(adj.streamUrl)
+                }
+            }
         }
     }
 

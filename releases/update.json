@@ -1,12 +1,12 @@
-﻿{
-    "versionCode":  6,
-    "versionName":  "1.3",
-    "title":  "NTV Android TV v1.3",
-    "changelog":  "• Recent Channels \u0026 Quick Recall: Auto-tracks recently played channels in \u0027🕒 Recent\u0027 category and instant previous channel switch via remote key.\n• Sleek Mini Channel Surfing Banner: Bottom zapping pill with channel logo, live progress bar, next show preview, and aspect badge without darkening the screen.\n• Live Number Key Dialing Overlay: On-screen keypad entry with real-time matched channel preview and instant OK confirmation.\n• Right-Pane Live \u0026 Upcoming Preview: Genre-based ambient glow (Sports, Movies, News, Zee/ClearKey) and UP NEXT schedule card.\n• Aspect Ratio Quick Toggle: Cycle FIT (original), STRETCH (full-screen 16:9), and ZOOM modes with remote Yellow key or OSD badge.\n• D-Pad Focus Enhancements: Smooth focus elevation with genre-tinted focus border and accent strip.",
-    "size":  19465911,
-    "assets":  {
-                   "universal":  "https://github.com/nirbhay02/NTV/releases/download/v1.3/NTV_v1.3.apk",
-                   "arm64":  "https://github.com/nirbhay02/NTV/releases/download/v1.3/NTV_v1.3_arm64.apk",
-                   "firetv":  "https://github.com/nirbhay02/NTV/releases/download/v1.3/NTV_v1.3_firetv_armv7.apk"
-               }
+{
+    "versionCode": 8,
+    "versionName": "1.5",
+    "title": "NTV Android TV v1.5",
+    "changelog": "• Performance Overhaul & Memory Caps: Bounded Go server RAM (GOMEMLIMIT=48MiB, GOGC=50) and 24-hour rolling EPG window saving ~50MB RAM.\n• NuvioTV Optimizations: 50% image RAM reduction via RGB_565 & GPU hardware bitmaps; Compose Compiler Stability configuration for butter-smooth 60fps scrolling.\n• Hardware-First Video Decoder Priority: Enforced hardware VPU decoders for 0% CPU overhead and zero frame drops.\n• Network & DNS Upgrades: IPv4-first DNS sorting to eliminate ISP IPv6 timeouts, TCP_NODELAY on video streaming sockets, and 16-connection HTTP/2 pool.\n• Akamai/Zee Channel Switching Fix: Solved 403 Forbidden stream error when zapping between Zee/ClearKey streams via strict ACL-scoped cookie validation.\n• UI & Navigation Suite: Recent channels with instant recall, mini channel surfing banner, live number key dialing overlay, and quick aspect ratio toggle.",
+    "size": 19469208,
+    "assets": {
+        "universal": "https://github.com/nirbhay02/NTV/releases/download/v1.5/NTV_v1.5.apk",
+        "arm64": "https://github.com/nirbhay02/NTV/releases/download/v1.5/NTV_v1.5_arm64.apk",
+        "firetv": "https://github.com/nirbhay02/NTV/releases/download/v1.5/NTV_v1.5_firetv_armv7.apk"
+    }
 }
