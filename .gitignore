@@ -1,0 +1,25 @@
+*.iml
+.gradle
+/local.properties
+.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+*.apk
+
+# Internal audit output — not for publishing
+MODERNIZATION_REPORT.md
+
+# Release signing — keep secrets out of version control
+keystore.properties
+*.keystore
+*.jks
+
+# Python caches and temporary test dumps
+__pycache__/
+*.py[cod]
+scripts/*.gz
+scripts/*.m3u
