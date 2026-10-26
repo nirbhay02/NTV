@@ -1,12 +1,12 @@
 {
-  "versionCode": 3,
-  "versionName": "1.2.0",
-  "title": "NTV Android TV v1.2.0",
-  "changelog": "• Huge APK size reduction (~80% smaller: 18.5 MB universal, 11.9 MB Fire TV).\n• Full minification and resource shrinking enabled.\n• In-app OTA auto-update support added.\n• Fast channel switching and EPG guide performance optimizations.",
-  "size": 19430000,
+  "versionCode": 4,
+  "versionName": "1.2.1",
+  "title": "NTV Android TV & Tablet v1.2.1",
+  "changelog": "• Verified in-app OTA auto-updater system.\n• Enhanced error reporting for update server connectivity.\n• Maintained ultra-compact build size (~11.6 MB on tablet, 11.9 MB on Fire TV).",
+  "size": 19450000,
   "assets": {
-    "universal": "https://github.com/nirbhay02/NTV/releases/download/v1.2.0/NTV_v1.2.apk",
-    "arm64": "https://github.com/nirbhay02/NTV/releases/download/v1.2.0/NTV_v1.2_arm64.apk",
-    "firetv": "https://github.com/nirbhay02/NTV/releases/download/v1.2.0/NTV_v1.2_firetv_armv7.apk"
+    "universal": "https://github.com/nirbhay02/NTV/releases/download/v1.2.1/NTV_v1.2.1.apk",
+    "arm64": "https://github.com/nirbhay02/NTV/releases/download/v1.2.1/NTV_v1.2.1_arm64.apk",
+    "firetv": "https://github.com/nirbhay02/NTV/releases/download/v1.2.1/NTV_v1.2.1_firetv_armv7.apk"
   }
 }

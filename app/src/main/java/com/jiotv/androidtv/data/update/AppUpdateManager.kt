@@ -178,6 +178,9 @@ object AppUpdateManager {
                     isUpdateAvailable = isAvailable
                 )
                 Result.success(updateInfo)
+            } else if (responseCode == 404) {
+                Log.w(TAG, "No release found at $endpoint (HTTP 404)")
+                Result.failure(Exception("No release found (HTTP 404). Ensure the GitHub repository is set to Public and a Release is published under Releases."))
             } else {
                 Log.e(TAG, "Update check failed with HTTP $responseCode")
                 Result.failure(Exception("HTTP $responseCode from update server"))

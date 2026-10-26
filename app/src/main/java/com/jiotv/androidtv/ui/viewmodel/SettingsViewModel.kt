@@ -190,8 +190,9 @@ class SettingsViewModel(
                 }
             }.onFailure { err ->
                 if (manual) {
-                    _updateError.value = "Failed to check update: ${err.localizedMessage}"
-                    _updateStatusMessage.value = "Update check failed"
+                    val msg = err.localizedMessage ?: "Unknown error"
+                    _updateError.value = msg
+                    _updateStatusMessage.value = "Check failed: $msg"
                 }
             }
             _isCheckingUpdate.value = false
