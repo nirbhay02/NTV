@@ -77,10 +77,10 @@ class EpgRepository(
             val age = now - lastSync
             val isExpired = age >= 24L * 3600_000L
             val isCacheEmpty = _epgMap.value.isEmpty()
-            val isInsufficient = _epgMap.value.size < 500
+            val isInsufficient = _epgMap.value.size < 1500
 
             if (isExpired || isCacheEmpty || isInsufficient) {
-                Log.d(tag, "EPG cache requires update (age: ${age / 3600_000}h, empty: $isCacheEmpty, count: ${_epgMap.value.size}). Syncing...")
+                Log.d(tag, "EPG cache requires update (age: ${age / 3600_000}h, empty: $isCacheEmpty, count: ${_epgMap.value.size}). Syncing from mitthu786/tvepg...")
                 refreshEpg(force = false)
             } else {
                 Log.d(tag, "EPG cache is fresh (age: ${age / 3600_000}h). Loaded ${_epgMap.value.size} channels.")
@@ -142,11 +142,17 @@ class EpgRepository(
             candidateUrls.add(customUrl.trim())
         }
 
-        // 2. Fenyx / community standard JioTV EPG source
+        // 2. mitthu786/tvepg All-in-One EPG source (JioTV, Tata Play, ZEE5, SonyLIV, Sun NXT)
         candidateUrls.add(PRIMARY_EPG_URL)
-        candidateUrls.add(FALLBACK_EPG_URL)
+        candidateUrls.add(SECONDARY_EPG_URL)
+        candidateUrls.add(SHORT_AIO_EPG_URL)
 
-        // 3. Local jiotv_go server companion EPG endpoint
+        // 3. mitthu786/tvepg Dedicated JioTV fallback
+        candidateUrls.add(JIOTV_EPG_URL)
+        candidateUrls.add(JIOTV_PAGES_URL)
+        candidateUrls.add(SHORT_JIOTV_EPG_URL)
+
+        // 4. Local jiotv_go server companion EPG endpoint
         try {
             val serverConfig = appPreferences.serverConfigFlow.first()
             candidateUrls.add(serverConfig.epgUrl)
@@ -362,8 +368,17 @@ class EpgRepository(
     }
 
     companion object {
-        const val PRIMARY_EPG_URL = "https://mitthu786.github.io/tvepg/jiotv/epg.xml.gz"
-        const val FALLBACK_EPG_URL = "https://avkb.short.gy/jioepg.xml.gz"
+        // mitthu786/tvepg: All-In-One OTT EPG (JioTV, Tata Play, ZEE5, SonyLIV, Sun NXT - 2200+ channels)
+        const val PRIMARY_EPG_URL = "https://raw.githubusercontent.com/mitthu786/tvepg/main/epg.xml.gz"
+        const val SECONDARY_EPG_URL = "https://mitthu786.github.io/tvepg/epg.xml.gz"
+        const val SHORT_AIO_EPG_URL = "https://avkb.short.gy/epg.xml.gz"
+
+        // mitthu786/tvepg: Dedicated JioTV 2-day guide fallbacks
+        const val JIOTV_EPG_URL = "https://raw.githubusercontent.com/mitthu786/tvepg/main/jiotv/epg.xml.gz"
+        const val JIOTV_PAGES_URL = "https://mitthu786.github.io/tvepg/jiotv/epg.xml.gz"
+        const val SHORT_JIOTV_EPG_URL = "https://avkb.short.gy/jioepg.xml.gz"
+
+        const val FALLBACK_EPG_URL = SECONDARY_EPG_URL
 
         /**
          * Timestamp parser used by the XMLTV EPG pipeline and unit tests.

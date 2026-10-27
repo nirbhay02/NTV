@@ -1,12 +1,12 @@
-{
-    "versionCode": 9,
-    "versionName": "1.5.1",
-    "title": "NTV Android TV v1.5.1",
-    "changelog": "• 100% EPG Coverage Across 1,226 Channels: Fixed EPG data missing on channels by expanding XMLTV parser retention window to 72 hours, preventing premature purging of once-daily community feeds.\n• 24h & 48h Recurring Schedule Projection: Automatically projects past day show schedules onto today's active timeline, guaranteeing full Now/Next program titles, descriptions, and live progress bars 24/7.\n• Enhanced Channel Name & Alias Matching: Intelligent fuzzy resolution for Zee, Sony Sports Ten, and regional network channels.\n• Inherits all v1.5 optimizations: Hardware-first decoding, RGB_565 GPU bitmaps, Zee channel zapping Akamai 403 fix, and Compose 60fps stability.",
-    "size": 19469197,
-    "assets": {
-        "universal": "https://github.com/nirbhay02/NTV/releases/download/v1.5.1/NTV_v1.5.1.apk",
-        "arm64": "https://github.com/nirbhay02/NTV/releases/download/v1.5.1/NTV_v1.5.1_arm64.apk",
-        "firetv": "https://github.com/nirbhay02/NTV/releases/download/v1.5.1/NTV_v1.5.1_firetv_armv7.apk"
-    }
+﻿{
+    "versionCode":  10,
+    "versionName":  "2.0",
+    "title":  "NTV Android TV v2.0",
+    "changelog":  "• Major Glassmorphic UI Overhaul: Obsidian backdrop with dynamic ambient genre lighting, frosted top bar with live server halo, category rail with neon indicators, glowing channel cards, and floating showcase hero panel.\n• All-In-One OTT EPG Integration: Switched primary EPG source to mitthu786/tvepg (2,200+ channels across JioTV, Tata Play, ZEE5, SonyLIV, Sun NXT with 52,000+ programmes).\n• Streamlined Playback Engine: Standardized on stable ExoPlayer / Media3 streaming pipeline with hardware-accelerated decoding and ClearKey DRM support.\n• Enhanced Navigation \u0026 Stability: Snappy D-pad response, instant category channel preview, and 60fps Compose scrolling.",
+    "size":  19472688,
+    "assets":  {
+                   "universal":  "https://github.com/nirbhay02/NTV/releases/download/v2.0/NTV_v2.0.apk",
+                   "arm64":  "https://github.com/nirbhay02/NTV/releases/download/v2.0/NTV_v2.0_arm64.apk",
+                   "firetv":  "https://github.com/nirbhay02/NTV/releases/download/v2.0/NTV_v2.0_firetv_armv7.apk"
+               }
 }

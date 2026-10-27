@@ -53,18 +53,28 @@ class EpgParser {
                             }
                             "display-name" -> {
                                 val dName = parser.nextText()
-                                if (currentChannelTagId != null && dName.isNotBlank()) {
+                                val tagId = currentChannelTagId
+                                if (tagId != null && dName.isNotBlank()) {
                                     val cleanName = dName.lowercase().replace(Regex("[^a-z0-9]"), "")
-                                    nameToChannelId[cleanName] = currentChannelTagId
-                                    if (cleanName.endsWith("hd")) {
-                                        nameToChannelId.putIfAbsent(cleanName.removeSuffix("hd"), currentChannelTagId)
-                                    }
-                                    if (cleanName.contains("sports")) {
-                                        nameToChannelId.putIfAbsent(cleanName.replace("sports", ""), currentChannelTagId)
-                                        nameToChannelId.putIfAbsent(cleanName.replace("sports", "").removeSuffix("hd"), currentChannelTagId)
-                                    }
-                                    if (cleanName.contains("sportsten")) {
-                                        nameToChannelId.putIfAbsent(cleanName.replace("sportsten", "ten"), currentChannelTagId)
+                                    if (cleanName.isNotBlank()) {
+                                        fun putMapping(k: String) {
+                                            val ex = nameToChannelId[k]
+                                            // Prefer pure numeric JioTV IDs over prefixed IDs (ts/sony/sun)
+                                            if (ex == null || (!ex.all { it.isDigit() } && tagId.all { it.isDigit() })) {
+                                                nameToChannelId[k] = tagId
+                                            }
+                                        }
+                                        putMapping(cleanName)
+                                        if (cleanName.endsWith("hd")) {
+                                            putMapping(cleanName.removeSuffix("hd"))
+                                        }
+                                        if (cleanName.contains("sports")) {
+                                            putMapping(cleanName.replace("sports", ""))
+                                            putMapping(cleanName.replace("sports", "").removeSuffix("hd"))
+                                        }
+                                        if (cleanName.contains("sportsten")) {
+                                            putMapping(cleanName.replace("sportsten", "ten"))
+                                        }
                                     }
                                 }
                             }
@@ -89,15 +99,18 @@ class EpgParser {
                         } else if (tagName == "programme" && currentProgrammeChannelId != null) {
                             if ((minStopEpoch <= 0L || currentStopEpoch >= minStopEpoch) &&
                                 (maxStartEpoch <= 0L || currentStartEpoch <= maxStartEpoch)) {
-                                val program = EpgProgram(
-                                    channelId = currentProgrammeChannelId,
-                                    title = currentTitle.trim(),
-                                    description = currentDesc.trim(),
-                                    startEpochMs = currentStartEpoch,
-                                    stopEpochMs = currentStopEpoch,
-                                    category = currentCategory?.trim()
-                                )
-                                programsByChannel.getOrPut(currentProgrammeChannelId) { mutableListOf() }.add(program)
+                                val trimmedTitle = currentTitle.trim()
+                                if (trimmedTitle.isNotEmpty()) {
+                                    val program = EpgProgram(
+                                        channelId = currentProgrammeChannelId,
+                                        title = trimmedTitle,
+                                        description = currentDesc.trim(),
+                                        startEpochMs = currentStartEpoch,
+                                        stopEpochMs = currentStopEpoch,
+                                        category = currentCategory?.trim()
+                                    )
+                                    programsByChannel.getOrPut(currentProgrammeChannelId) { mutableListOf() }.add(program)
+                                }
                             }
                         }
                     }

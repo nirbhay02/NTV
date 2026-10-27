@@ -1,11 +1,11 @@
-# NTV for Android TV & Tablet (v1.5.1) 📺
+# NTV for Android TV & Tablet (v2.0) 📺
 
-[![Release](https://img.shields.io/badge/Release-v1.5.1-blue.svg)](https://github.com/nirbhay02/NTV/releases/tag/v1.5.1)
-[![Universal APK](https://img.shields.io/badge/Download-Universal_APK-success.svg)](https://github.com/nirbhay02/NTV/releases/download/v1.5.1/NTV_v1.5.1.apk)
-[![ARM64 APK](https://img.shields.io/badge/Download-ARM64_APK-informational.svg)](https://github.com/nirbhay02/NTV/releases/download/v1.5.1/NTV_v1.5.1_arm64.apk)
-[![Fire TV APK](https://img.shields.io/badge/Download-Fire_TV_ARMv7-orange.svg)](https://github.com/nirbhay02/NTV/releases/download/v1.5.1/NTV_v1.5.1_firetv_armv7.apk)
+[![Release](https://img.shields.io/badge/Release-v2.0-blue.svg)](https://github.com/nirbhay02/NTV/releases/tag/v2.0)
+[![Universal APK](https://img.shields.io/badge/Download-Universal_APK-success.svg)](https://github.com/nirbhay02/NTV/releases/download/v2.0/NTV_v2.0.apk)
+[![ARM64 APK](https://img.shields.io/badge/Download-ARM64_APK-informational.svg)](https://github.com/nirbhay02/NTV/releases/download/v2.0/NTV_v2.0_arm64.apk)
+[![Fire TV APK](https://img.shields.io/badge/Download-Fire_TV_ARMv7-orange.svg)](https://github.com/nirbhay02/NTV/releases/download/v2.0/NTV_v2.0_firetv_armv7.apk)
 
-A high-performance, native Android TV and tablet application built with **Kotlin** and **Jetpack Compose for TV (Material 3)**. It embeds the streaming server directly inside the Android application itself, completely eliminating any requirement for external PCs, Termux, Docker, or secondary network servers.
+A high-performance, native Android TV and tablet application built with **Kotlin** and **Jetpack Compose for TV (Material 3)**. It embeds the streaming server directly inside the Android application itself, completely eliminating any requirement for external PCs, Termux, Docker, or secondary network servers. Includes a modern **Glassmorphic UI overhaul**, dynamic genre-colored ambient lighting, and comprehensive **All-In-One OTT EPG** integration powered by [mitthu786/tvepg](https://github.com/mitthu786/tvepg).
 
 It automatically handles local process lifecycle management, broadcaster authentication token proxying (with special priority for **Zee Network channels** to prevent 403 Forbidden errors), and native streaming via **AndroidX Media3 ExoPlayer**.
 

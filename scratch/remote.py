@@ -1,7 +1,7 @@
 """
 NTV Virtual TV Remote Controller for Android
 Supports:
-1. GUI Mode (Default): Floating TV remote with clickable buttons & live PC keyboard controls.
+1. GUI Mode (Default): Floating TV remote with clickable buttons, live PC keyboard controls, and device auto-detection.
 2. CLI Mode (--cli): Terminal mode with direct keypress detection.
 """
 
@@ -16,7 +16,7 @@ ADB_PATH = r"C:\Users\Nirbhay\AppData\Local\Android\Sdk\platform-tools\adb.exe"
 if not os.path.exists(ADB_PATH):
     ADB_PATH = "adb"
 
-DEFAULT_DEVICE = "192.168.0.199:37849"
+DEFAULT_DEVICE = "192.168.0.199:38905"
 
 # Android TV Keycodes
 KEYCODES = {
@@ -56,30 +56,93 @@ KEYCODES = {
 }
 
 
+def get_connected_devices():
+    """Returns a list of dicts: [{'serial': ..., 'model': ..., 'line': ...}]"""
+    try:
+        res = subprocess.run([ADB_PATH, "devices", "-l"], capture_output=True, text=True, timeout=5)
+        devices = []
+        for line in res.stdout.splitlines()[1:]:
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split()
+            if len(parts) >= 2 and parts[1] == "device":
+                serial = parts[0]
+                model = "Android Device"
+                for p in parts[2:]:
+                    if p.startswith("model:"):
+                        model = p.split(":", 1)[1].replace("_", " ")
+                    elif p.startswith("device:"):
+                        dev = p.split(":", 1)[1]
+                        if model == "Android Device":
+                            model = dev
+                devices.append({"serial": serial, "model": model, "line": line})
+        return devices
+    except Exception:
+        return []
+
+
 class AdbController:
-    def __init__(self, device_ip=DEFAULT_DEVICE):
-        self.device_ip = device_ip
+    def __init__(self, target="auto"):
+        self.target = target if target else "auto"
+        self.active_serial = None
+        self.active_model = ""
         self.cmd_queue = queue.Queue()
         self.is_connected = False
         self.status_callback = None
         self.worker = threading.Thread(target=self._worker_loop, daemon=True)
         self.worker.start()
+        self.connect()
 
-    def set_device(self, new_ip):
-        self.device_ip = new_ip.strip()
+    def set_device(self, new_target):
+        self.target = new_target.strip() if new_target else "auto"
         self.connect()
 
     def connect(self):
         def _bg_connect():
             try:
-                subprocess.run([ADB_PATH, "connect", self.device_ip], capture_output=True, text=True, timeout=5)
-                # Verify
-                res = subprocess.run([ADB_PATH, "devices"], capture_output=True, text=True, timeout=5)
-                self.is_connected = self.device_ip in res.stdout
+                # 1. If target is an IP:PORT and not auto, attempt adb connect
+                if self.target and self.target != "auto" and ":" in self.target:
+                    subprocess.run([ADB_PATH, "connect", self.target], capture_output=True, text=True, timeout=5)
+
+                # 2. Get list of currently attached devices
+                devs = get_connected_devices()
+
+                chosen = None
+                if devs:
+                    # User specified explicit target?
+                    if self.target and self.target != "auto":
+                        for d in devs:
+                            if self.target in d["serial"] or self.target in d["line"]:
+                                chosen = d
+                                break
+                    # Auto selection
+                    if not chosen:
+                        # Prioritize Tablet / IP match / Pad
+                        for d in devs:
+                            if "192.168.0.199" in d["serial"] or "pad" in d["model"].lower() or "pipa" in d["line"].lower():
+                                chosen = d
+                                break
+                        if not chosen:
+                            chosen = devs[0]
+
+                if chosen:
+                    self.active_serial = chosen["serial"]
+                    self.active_model = chosen["model"]
+                    self.is_connected = True
+                    msg = f"Connected: {self.active_model} ({self.active_serial})"
+                else:
+                    self.active_serial = None
+                    self.active_model = ""
+                    self.is_connected = False
+                    msg = f"Offline: No device ({self.target})"
+
                 if self.status_callback:
-                    self.status_callback(self.is_connected, f"Connected to {self.device_ip}" if self.is_connected else f"Offline: {self.device_ip}")
+                    self.status_callback(self.is_connected, msg)
+
             except Exception as e:
                 self.is_connected = False
+                self.active_serial = None
                 if self.status_callback:
                     self.status_callback(False, f"Error: {e}")
 
@@ -96,11 +159,17 @@ class AdbController:
         while True:
             code = self.cmd_queue.get()
             try:
-                subprocess.run(
-                    [ADB_PATH, "-s", self.device_ip, "shell", "input", "keyevent", code],
-                    capture_output=True,
-                    timeout=2
-                )
+                if not self.active_serial:
+                    devs = get_connected_devices()
+                    if devs:
+                        self.active_serial = devs[0]["serial"]
+                        self.is_connected = True
+
+                cmd = [ADB_PATH]
+                if self.active_serial:
+                    cmd.extend(["-s", self.active_serial])
+                cmd.extend(["shell", "input", "keyevent", code])
+                subprocess.run(cmd, capture_output=True, timeout=2)
             except Exception as e:
                 print(f"[ADB Error] Failed to send keyevent {code}: {e}")
             finally:
@@ -110,13 +179,13 @@ class AdbController:
 # ==========================================
 # GUI IMPLEMENTATION (Tkinter)
 # ==========================================
-def run_gui(device_ip=DEFAULT_DEVICE):
+def run_gui(device_ip="auto"):
     import tkinter as tk
     from tkinter import ttk, messagebox
 
     root = tk.Tk()
     root.title("NTV Virtual TV Remote")
-    root.geometry("360x640")
+    root.geometry("370x690")
     root.resizable(False, False)
     root.configure(bg="#121316")
 
@@ -134,24 +203,15 @@ def run_gui(device_ip=DEFAULT_DEVICE):
     TEXT_MUTED = "#8b949e"
 
     # Status Bar Frame
-    status_frame = tk.Frame(root, bg=PANEL_BG, height=45)
-    status_frame.pack(fill=tk.X, padx=10, pady=(10, 5))
+    status_frame = tk.Frame(root, bg=PANEL_BG, height=42)
+    status_frame.pack(fill=tk.X, padx=10, pady=(10, 4))
     status_frame.pack_propagate(False)
 
     status_dot = tk.Label(status_frame, text="●", fg="#ef4444", bg=PANEL_BG, font=(FONT_FAMILY, 14, "bold"))
     status_dot.pack(side=tk.LEFT, padx=(10, 4))
 
-    status_label = tk.Label(status_frame, text=f"Connecting: {device_ip}", fg=TEXT_MUTED, bg=PANEL_BG, font=(FONT_FAMILY, 9))
+    status_label = tk.Label(status_frame, text=f"Detecting device...", fg=TEXT_MUTED, bg=PANEL_BG, font=(FONT_FAMILY, 9))
     status_label.pack(side=tk.LEFT, padx=2)
-
-    def on_status_update(connected, msg):
-        def _update():
-            status_dot.config(fg="#22c55e" if connected else "#ef4444")
-            status_label.config(text=msg, fg="#ffffff" if connected else "#f87171")
-        root.after(0, _update)
-
-    adb.status_callback = on_status_update
-    adb.connect()
 
     reconnect_btn = tk.Button(
         status_frame, text="🔄", bg=PANEL_BG, fg=TEXT_MUTED, activebackground=BTN_HOVER,
@@ -159,6 +219,57 @@ def run_gui(device_ip=DEFAULT_DEVICE):
         command=adb.connect
     )
     reconnect_btn.pack(side=tk.RIGHT, padx=8)
+
+    # Device Bar Frame (Input + Connect + Auto)
+    dev_frame = tk.Frame(root, bg=BG_DARK)
+    dev_frame.pack(fill=tk.X, padx=10, pady=(2, 6))
+
+    dev_entry = tk.Entry(
+        dev_frame, bg=PANEL_BG, fg=TEXT_COLOR, insertbackground=TEXT_COLOR,
+        bd=0, relief=tk.FLAT, font=(FONT_FAMILY, 9)
+    )
+    initial_val = device_ip if device_ip and device_ip != "auto" else DEFAULT_DEVICE
+    dev_entry.insert(0, initial_val)
+    dev_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=4, padx=(0, 6))
+
+    def on_connect_click():
+        val = dev_entry.get().strip()
+        status_dot.config(fg="#f59e0b")
+        status_label.config(text=f"Connecting to {val}...", fg=TEXT_MUTED)
+        adb.set_device(val if val else "auto")
+
+    def on_auto_click():
+        status_dot.config(fg="#f59e0b")
+        status_label.config(text="Auto-detecting devices...", fg=TEXT_MUTED)
+        adb.set_device("auto")
+
+    dev_entry.bind("<Return>", lambda e: on_connect_click())
+
+    connect_btn = tk.Button(
+        dev_frame, text="Connect", command=on_connect_click,
+        bg=ACCENT_BLUE, fg="#ffffff", activebackground=ACCENT_HOVER,
+        bd=0, relief=tk.FLAT, font=(FONT_FAMILY, 8, "bold"), cursor="hand2"
+    )
+    connect_btn.pack(side=tk.LEFT, padx=(0, 4), ipady=3, ipadx=6)
+
+    auto_btn = tk.Button(
+        dev_frame, text="⚡ Auto", command=on_auto_click,
+        bg=BTN_BG, fg=TEXT_MUTED, activebackground=BTN_HOVER,
+        bd=0, relief=tk.FLAT, font=(FONT_FAMILY, 8, "bold"), cursor="hand2"
+    )
+    auto_btn.pack(side=tk.LEFT, ipady=3, ipadx=4)
+
+    def on_status_update(connected, msg):
+        def _update():
+            status_dot.config(fg="#22c55e" if connected else "#ef4444")
+            status_label.config(text=msg, fg="#ffffff" if connected else "#f87171")
+            if connected and adb.active_serial:
+                dev_entry.delete(0, tk.END)
+                dev_entry.insert(0, adb.active_serial)
+        root.after(0, _update)
+
+    adb.status_callback = on_status_update
+    adb.connect()
 
     # Helper for creating styled buttons
     def make_btn(parent, text, cmd, width=5, height=2, bg=BTN_BG, fg=TEXT_COLOR, font=(FONT_FAMILY, 10, "bold")):
@@ -181,7 +292,7 @@ def run_gui(device_ip=DEFAULT_DEVICE):
 
     # --- TOP ROW: POWER / MENU / HOME / BACK ---
     top_nav = tk.Frame(root, bg=BG_DARK)
-    top_nav.pack(pady=6)
+    top_nav.pack(pady=4)
 
     make_btn(top_nav, "POWER", lambda: send("POWER"), width=6, height=1, bg="#7f1d1d", fg="#fca5a5", font=(FONT_FAMILY, 8, "bold")).pack(side=tk.LEFT, padx=5)
     make_btn(top_nav, "MENU", lambda: send("MENU"), width=6, height=1, font=(FONT_FAMILY, 8, "bold")).pack(side=tk.LEFT, padx=5)
@@ -190,7 +301,7 @@ def run_gui(device_ip=DEFAULT_DEVICE):
 
     # --- D-PAD SECTION ---
     dpad_container = tk.Frame(root, bg=BG_DARK)
-    dpad_container.pack(pady=10)
+    dpad_container.pack(pady=8)
 
     # Up
     up_row = tk.Frame(dpad_container, bg=BG_DARK)
@@ -211,11 +322,11 @@ def run_gui(device_ip=DEFAULT_DEVICE):
 
     # --- CHANNEL & VOLUME SECTION ---
     cv_frame = tk.Frame(root, bg=BG_DARK)
-    cv_frame.pack(pady=8)
+    cv_frame.pack(pady=6)
 
     # Vol Column
     vol_col = tk.Frame(cv_frame, bg=PANEL_BG, padx=8, pady=6)
-    vol_col.pack(side=tk.LEFT, padx=12)
+    vol_col.pack(side=tk.LEFT, padx=10)
     tk.Label(vol_col, text="VOLUME", bg=PANEL_BG, fg=TEXT_MUTED, font=(FONT_FAMILY, 7, "bold")).pack()
     make_btn(vol_col, "+", lambda: send("VOL_UP"), width=4, height=1, font=(FONT_FAMILY, 10, "bold")).pack(pady=2)
     make_btn(vol_col, "MUTE", lambda: send("MUTE"), width=4, height=1, font=(FONT_FAMILY, 7)).pack(pady=2)
@@ -223,14 +334,14 @@ def run_gui(device_ip=DEFAULT_DEVICE):
 
     # Media Center Column
     media_col = tk.Frame(cv_frame, bg=BG_DARK)
-    media_col.pack(side=tk.LEFT, padx=6)
+    media_col.pack(side=tk.LEFT, padx=4)
     make_btn(media_col, "⏮ PREV", lambda: send("PREV"), width=7, height=1, font=(FONT_FAMILY, 7)).pack(pady=2)
     make_btn(media_col, "⏯ PLAY/PAUSE", lambda: send("PLAY_PAUSE"), width=11, height=1, bg="#15803d", fg="#ffffff", font=(FONT_FAMILY, 8, "bold")).pack(pady=3)
     make_btn(media_col, "⏭ NEXT", lambda: send("NEXT"), width=7, height=1, font=(FONT_FAMILY, 7)).pack(pady=2)
 
     # Channel Column
     ch_col = tk.Frame(cv_frame, bg=PANEL_BG, padx=8, pady=6)
-    ch_col.pack(side=tk.LEFT, padx=12)
+    ch_col.pack(side=tk.LEFT, padx=10)
     tk.Label(ch_col, text="CHANNEL", bg=PANEL_BG, fg=TEXT_MUTED, font=(FONT_FAMILY, 7, "bold")).pack()
     make_btn(ch_col, "CH +", lambda: send("CH_UP"), width=4, height=1, font=(FONT_FAMILY, 8, "bold")).pack(pady=2)
     make_btn(ch_col, "INFO", lambda: send("INFO"), width=4, height=1, font=(FONT_FAMILY, 7)).pack(pady=2)
@@ -238,7 +349,7 @@ def run_gui(device_ip=DEFAULT_DEVICE):
 
     # --- NUMBER PAD TOGGLE / SECTION ---
     num_frame = tk.Frame(root, bg=BG_DARK)
-    num_frame.pack(pady=5)
+    num_frame.pack(pady=4)
 
     num_rows = [
         ["1", "2", "3"],
@@ -259,6 +370,10 @@ def run_gui(device_ip=DEFAULT_DEVICE):
     # KEYBOARD SHORTCUT BINDINGS
     # ==========================================
     def on_key_press(event):
+        # Don't trigger remote shortcuts if typing in dev_entry
+        if root.focus_get() == dev_entry:
+            return
+
         sym = event.keysym
         char = event.char
         key_map = {
@@ -302,14 +417,16 @@ def run_gui(device_ip=DEFAULT_DEVICE):
 # ==========================================
 # CLI IMPLEMENTATION (Terminal)
 # ==========================================
-def run_cli(device_ip=DEFAULT_DEVICE):
+def run_cli(device_ip="auto"):
     import msvcrt
 
     adb = AdbController(device_ip)
     adb.connect()
+    time.sleep(0.5)
+
     print("=" * 55)
     print("           NTV VIRTUAL TV REMOTE (CLI MODE)          ")
-    print(f" Target Device: {device_ip}")
+    print(f" Target Device: {adb.active_serial or device_ip} ({adb.active_model})")
     print("=" * 55)
     print(" Controls:")
     print("  Arrow Keys / W,A,S,D : D-pad Navigation")
@@ -401,7 +518,7 @@ def run_cli(device_ip=DEFAULT_DEVICE):
 
 
 if __name__ == "__main__":
-    target = DEFAULT_DEVICE
+    target = "auto"
     if len(sys.argv) > 1 and not sys.argv[1].startswith("--"):
         target = sys.argv[1]
 

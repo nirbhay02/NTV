@@ -77,6 +77,15 @@ class ProxyStreamHandler(private val serverConfig: ServerConfig) {
         cookieStore.clear()
     }
 
+    /**
+     * Clears only external broadcaster/Akamai cookies while preserving local server
+     * (127.0.0.1/localhost) session states, preventing unnecessary re-auth cycles.
+     */
+    fun clearStaleChannelCookies() {
+        val externalHosts = cookieStore.keys.filter { it != "127.0.0.1" && it != "localhost" }
+        externalHosts.forEach { cookieStore.remove(it) }
+    }
+
     val okHttpClient: OkHttpClient by lazy {
         val builder = OkHttpClient.Builder()
             // [PERF-OPT-3] Reusable connection pool & HTTP/2 for video chunk downloads
@@ -227,14 +236,23 @@ class ProxyStreamHandler(private val serverConfig: ServerConfig) {
         if (streamUrl.isBlank()) return
         try {
             val target = serverConfig.resolveStreamUrl(streamUrl)
+            // Use GET with Range: 0-512 to prime the local Go server's upstream Jio token & manifest cache
             val request = Request.Builder()
                 .url(target)
-                .head()
+                .header("Range", "bytes=0-512")
+                .header("User-Agent", serverConfig.customUserAgent)
                 .build()
             okHttpClient.newCall(request).enqueue(object : Callback {
                 override fun onFailure(call: Call, e: IOException) {}
                 override fun onResponse(call: Call, response: Response) {
-                    response.close()
+                    try {
+                        response.body?.byteStream()?.use { stream ->
+                            val buf = ByteArray(256)
+                            stream.read(buf)
+                        }
+                    } catch (_: Exception) {} finally {
+                        response.close()
+                    }
                 }
             })
         } catch (_: Exception) {}

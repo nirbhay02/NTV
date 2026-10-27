@@ -199,21 +199,51 @@ class PlayerViewModel(
         }
     }
 
+    init {
+        viewModelScope.launch {
+            serverConfigRepository.serverConfig.collect { config ->
+                playerManager?.updateServerConfig(config)
+            }
+        }
+    }
+
     private var prefetchJob: Job? = null
+    private var focusWarmupJob: Job? = null
 
     // [PERF-OPT-5] Non-blocking pre-warming of adjacent channels for instant zapping
     private fun prewarmAdjacentChannels(channel: Channel) {
         prefetchJob?.cancel()
         prefetchJob = viewModelScope.launch(Dispatchers.IO) {
-            delay(2500) // Delay until current channel is safely playing
+            delay(500) // Reduced from 2500ms to 500ms for faster zapping
             val next = channelRepository.getNextChannel(channel.id, activeCategoryId)
             val prev = channelRepository.getPreviousChannel(channel.id, activeCategoryId)
             listOfNotNull(next, prev).forEach { adj ->
-                val isLocal = adj.streamUrl.contains("127.0.0.1") || adj.streamUrl.contains("localhost")
-                if (adj.streamUrl.isNotBlank() && !adj.isZee && isLocal) {
-                    playerManager?.warmUpStream(adj.streamUrl)
-                }
+                warmUpChannel(adj)
             }
+        }
+    }
+
+    fun onChannelFocused(channel: Channel) {
+        focusWarmupJob?.cancel()
+        focusWarmupJob = viewModelScope.launch(Dispatchers.IO) {
+            delay(200) // 200ms debounce
+            if (channel.id != _playbackState.value.currentChannel?.id) {
+                warmUpChannel(channel)
+            }
+        }
+    }
+
+    private fun warmUpChannel(channel: Channel) {
+        val isLocal = channel.streamUrl.contains("127.0.0.1") || channel.streamUrl.contains("localhost")
+        if (channel.streamUrl.isNotBlank() && !channel.isZee && isLocal) {
+            val config = playerManager?.getServerConfig()
+            val isHd = channel.isHd || channel.name.contains("HD", ignoreCase = true) || channel.groupTitle.contains("HD", ignoreCase = true)
+            val warmupUrl = if (isHd) {
+                "${config?.baseUrl ?: "http://127.0.0.1:5001"}/live/mpd/${channel.id}"
+            } else {
+                "${config?.baseUrl ?: "http://127.0.0.1:5001"}/live/${config?.quality ?: "high"}/${channel.id}.m3u8"
+            }
+            playerManager?.warmUpStream(warmupUrl)
         }
     }
 

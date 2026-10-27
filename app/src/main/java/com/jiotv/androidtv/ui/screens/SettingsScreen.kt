@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
+import com.jiotv.androidtv.data.model.ServerConfig
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
@@ -510,6 +511,13 @@ fun SettingsScreen(
                             onClick = { viewModel.testConnection(serverConfig.host, serverConfig.port) }
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "EPG Source: mitthu786/tvepg (All-In-One OTT Guide • JioTV, Tata Play, ZEE5) ${if (epgChannelCount > 0) "• $epgChannelCount channels loaded" else ""}",
+                        fontSize = 12.sp,
+                        color = Color(0xFF94A3B8)
+                    )
 
                     when (val state = testState) {
                         is TestConnectionState.Testing -> {

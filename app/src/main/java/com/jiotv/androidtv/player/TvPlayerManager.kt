@@ -97,7 +97,7 @@ data class PlayerPlaybackState(
 @UnstableApi
 class TvPlayerManager(
     private val context: Context,
-    private val serverConfig: ServerConfig,
+    private var serverConfig: ServerConfig,
     private val scope: CoroutineScope
 ) {
     companion object {
@@ -110,9 +110,18 @@ class TvPlayerManager(
     private var osdHideJob: Job? = null
     private var miniSurfingHideJob: Job? = null
 
+    // DRM session manager cache with keepalive (prevents re-fetching Widevine license on channel switch)
+    private val drmSessionManagerCache = java.util.concurrent.ConcurrentHashMap<String, DefaultDrmSessionManager>()
+
     // DRM state tracking (ported from jiotv_go_app OmniPlayerScreen)
     private var useDrm: Boolean = true
     private var drmRetryCount: Int = 0
+
+    fun updateServerConfig(config: ServerConfig) {
+        this.serverConfig = config
+    }
+
+    fun getServerConfig(): ServerConfig = serverConfig
 
     private val _playbackState = MutableStateFlow(PlayerPlaybackState())
     val playbackState = _playbackState.asStateFlow()
@@ -286,9 +295,9 @@ class TvPlayerManager(
             Log.e(TAG, "Playback error [${error.errorCodeName} / ${error.errorCode}]: $causeMsg", error)
 
             val currentChannel = _playbackState.value.currentChannel
+            val isClearKey = currentChannel?.licenseKeyUrl?.startsWith("jwk:", ignoreCase = true) == true || currentChannel?.isZee == true
 
             // jiotv_go_app DRM Auto-Fallback Engine (only for official JioTV Widevine streams)
-            val isClearKey = currentChannel?.licenseKeyUrl?.startsWith("jwk:", ignoreCase = true) == true || currentChannel?.isZee == true
             if (useDrm && currentChannel != null && !isClearKey) {
                 drmRetryCount++
                 if (drmRetryCount >= 2) {
@@ -346,10 +355,9 @@ class TvPlayerManager(
             drmRetryCount = 0
         }
 
-        // Clean up previous channel state & stale cookies (prevents cross-channel 403 on Akamai/Zee)
+        // Clean up previous channel state (preserves HTTP/2 connection pool & TLS session cache)
         player.stop()
         player.clearMediaItems()
-        proxyHandler.clearCookies()
 
         _playbackState.value = _playbackState.value.copy(
             currentChannel = channel,
@@ -374,7 +382,7 @@ class TvPlayerManager(
         var resolvedLicenseUrl = channel.licenseKeyUrl
         val isLocalChannel = playbackUrl.contains("127.0.0.1") || playbackUrl.contains("localhost")
 
-        if (useDrm && (channel.isDrm || playbackUrl.contains("/live/mpd/") || channel.manifestType.equals("mpd", ignoreCase = true))) {
+        if (useDrm && (channel.isDrm || playbackUrl.contains("/live/mpd/") || channel.manifestType.equals("mpd", ignoreCase = true) || isLocalChannel)) {
             if (isLocalChannel) {
                 playbackUrl = "${serverConfig.baseUrl}/live/mpd/$channelId"
                 if (resolvedLicenseUrl.isNullOrBlank()) {
@@ -386,7 +394,7 @@ class TvPlayerManager(
         // Force HLS when DRM is disabled or falling back
         if (!useDrm) {
             resolvedLicenseUrl = null
-            if (playbackUrl.contains("/live/mpd/")) {
+            if (isLocalChannel || playbackUrl.contains("/live/mpd/")) {
                 playbackUrl = "${serverConfig.baseUrl}/live/${serverConfig.quality}/$channelId.m3u8"
             }
         }
@@ -395,15 +403,19 @@ class TvPlayerManager(
         val isDash = isDrm || playbackUrl.contains("/live/mpd/") || playbackUrl.contains(".mpd", ignoreCase = true)
         val mimeType = if (isDash) MimeTypes.APPLICATION_MPD else MimeTypes.APPLICATION_M3U8
 
-        Log.d(TAG, "Preparing '${channel.name}' (DRM: $isDrm, DASH: $isDash, URL: $playbackUrl, License: $resolvedLicenseUrl)")
+        Log.d(TAG, "Preparing '${channel.name}' (DRM: $isDrm, DASH: $isDash, URL: $playbackUrl, Fallback: $forceHlsFallback)")
 
+        // Safe target offset: 15s for remote/Zee channels to completely prevent buffering, 6s for local DASH
+        val targetOffsetMs = if (channel.isZee || !isLocalChannel) 15000L else if (isDash) 6000L else 4000L
         val mediaItemBuilder = MediaItem.Builder()
             .setUri(Uri.parse(playbackUrl))
             .setMediaId(channelId)
             .setMimeType(mimeType)
             .setLiveConfiguration(
                 MediaItem.LiveConfiguration.Builder()
-                    .setTargetOffsetMs(15000)
+                    .setTargetOffsetMs(targetOffsetMs)
+                    .setMinPlaybackSpeed(0.98f)
+                    .setMaxPlaybackSpeed(1.02f)
                     .build()
             )
 
@@ -428,7 +440,7 @@ class TvPlayerManager(
             val isJwk = resolvedLicenseUrl.startsWith("jwk:", ignoreCase = true)
 
             if (isJwk) {
-                // ClearKey DRM for Zee Network & third-party DASH MPD channels
+                // ClearKey DRM for Zee Network & third-party DASH MPD channels (In-Memory Key)
                 Log.d(TAG, "Configuring ClearKey DRM for '${channel.name}'")
                 val jwkJson = resolvedLicenseUrl.substringAfter("jwk:").substringAfter("JWK:")
                 val drmCallback = LocalMediaDrmCallback(jwkJson.toByteArray(Charsets.UTF_8))
@@ -445,19 +457,33 @@ class TvPlayerManager(
                     .build()
                 mediaItemBuilder.setDrmConfiguration(drmConfig)
 
-                // CRITICAL jiotv_go_app FIX: Force Widevine Security Level "L3" (Software DRM)
-                // This prevents Android TV hardware crypto path crashes and unexpected runtime errors!
-                val drmCallback = OmniMediaDrmCallback(resolvedLicenseUrl, normalizedHeaders, proxyHandler.okHttpClient)
-                drmSessionManager = DefaultDrmSessionManager.Builder()
-                    .setUuidAndExoMediaDrmProvider(C.WIDEVINE_UUID) { uuid ->
-                        FrameworkMediaDrm.newInstance(uuid).apply {
-                            try {
-                                setPropertyString("securityLevel", "L3")
-                            } catch (_: Exception) {}
+                // Widevine DRM session reuse with 5-minute keepalive
+                val cacheKey = "$channelId-$resolvedLicenseUrl"
+                var sessionManager = drmSessionManagerCache[cacheKey]
+                if (sessionManager == null) {
+                    val drmCallback = OmniMediaDrmCallback(resolvedLicenseUrl, normalizedHeaders, proxyHandler.okHttpClient)
+                    sessionManager = DefaultDrmSessionManager.Builder()
+                        .setUuidAndExoMediaDrmProvider(C.WIDEVINE_UUID) { uuid ->
+                            FrameworkMediaDrm.newInstance(uuid).apply {
+                                try {
+                                    setPropertyString("securityLevel", "L3")
+                                } catch (_: Exception) {}
+                            }
+                        }
+                        .setMultiSession(true)
+                        .setSessionKeepaliveMs(300_000L) // 5 minutes keepalive
+                        .build(drmCallback)
+
+                    if (drmSessionManagerCache.size >= 24) {
+                        val oldest = drmSessionManagerCache.keys.firstOrNull()
+                        if (oldest != null) {
+                            val removed = drmSessionManagerCache.remove(oldest)
+                            try { removed?.release() } catch (_: Exception) {}
                         }
                     }
-                    .setMultiSession(true)
-                    .build(drmCallback)
+                    drmSessionManagerCache[cacheKey] = sessionManager
+                }
+                drmSessionManager = sessionManager
             }
         }
 
@@ -472,7 +498,7 @@ class TvPlayerManager(
             dashFactory.createMediaSource(mediaItem)
         } else {
             HlsMediaSource.Factory(dataSourceFactory)
-                .setAllowChunklessPreparation(false)
+                .setAllowChunklessPreparation(true)
                 .createMediaSource(mediaItem)
         }
 
@@ -738,6 +764,10 @@ class TvPlayerManager(
         osdHideJob?.cancel()
         miniSurfingHideJob?.cancel()
         retryJob?.cancel()
+        drmSessionManagerCache.values.forEach {
+            try { it.release() } catch (_: Exception) {}
+        }
+        drmSessionManagerCache.clear()
         exoPlayer?.release()
         exoPlayer = null
     }
