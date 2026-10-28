@@ -7,12 +7,15 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -587,6 +590,10 @@ fun MainDashboardScreen(
                                         val isTarget = channel.id == targetChannelId
                                         val genreColor = getGenreColor(channel.groupTitle, channel.isZee)
 
+                                        LaunchedEffect(channel.id) {
+                                            viewModel.fetchNativeEpgIfMissing(channel.id, channel.name)
+                                        }
+
                                         JtvClickable(
                                             onClick = {
                                                 viewModel.setLastSelectedChannel(channel)
@@ -602,6 +609,7 @@ fun MainDashboardScreen(
                                         ) { focused ->
                                             if (focused) {
                                                 LaunchedEffect(channel.id) {
+                                                    viewModel.fetchNativeEpgIfMissing(channel.id, channel.name)
                                                     viewModel.onChannelFocused(channel)
                                                 }
                                             }
@@ -752,14 +760,19 @@ fun MainDashboardScreen(
                                         ),
                                         shape = RoundedCornerShape(18.dp)
                                     )
-                                    .padding(18.dp)
+                                    .padding(horizontal = 16.dp, vertical = 14.dp)
                             ) {
                                 if (selected != null) {
                                     Column(
-                                        modifier = Modifier.fillMaxSize(),
-                                        verticalArrangement = Arrangement.SpaceBetween
+                                        modifier = Modifier.fillMaxSize()
                                     ) {
-                                        Column {
+                                        // Scrollable upper content taking all available weight
+                                        Column(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .fillMaxWidth()
+                                                .verticalScroll(rememberScrollState())
+                                        ) {
                                             // Header row with Floating Showcase Plate + Big Watermark Number
                                             Row(
                                                 modifier = Modifier.fillMaxWidth(),
@@ -779,30 +792,30 @@ fun MainDashboardScreen(
                                                 ) {
                                                     ChannelPlate(
                                                         logoUrl = selected.logoUrl.orEmpty(),
-                                                        width = 145.dp,
-                                                        height = 92.dp
+                                                        width = 135.dp,
+                                                        height = 82.dp
                                                     )
                                                 }
 
                                                 NumberBlock(
                                                     number = selected.number,
-                                                    fontSize = 28.sp,
+                                                    fontSize = 26.sp,
                                                     modifier = Modifier.padding(top = 4.dp)
                                                 )
                                             }
 
-                                            Spacer(Modifier.height(14.dp))
+                                            Spacer(Modifier.height(10.dp))
 
                                             // Channel Title
                                             Text(
                                                 text = selected.name,
-                                                style = textStyle(26.sp, FontWeight.ExtraBold),
+                                                style = textStyle(22.sp, FontWeight.ExtraBold),
                                                 color = Color.White,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
                                             )
 
-                                            Spacer(Modifier.height(6.dp))
+                                            Spacer(Modifier.height(5.dp))
 
                                             // Metadata Badges Row
                                             Row(
@@ -818,11 +831,11 @@ fun MainDashboardScreen(
                                                                 ),
                                                                 RoundedCornerShape(4.dp)
                                                             )
-                                                            .padding(horizontal = 7.dp, vertical = 2.5.dp)
+                                                            .padding(horizontal = 7.dp, vertical = 2.dp)
                                                     ) {
                                                         Text(
                                                             text = "1080p Full HD",
-                                                            style = textStyle(10.5.sp, FontWeight.ExtraBold),
+                                                            style = textStyle(10.sp, FontWeight.ExtraBold),
                                                             color = Color(0xFF031622)
                                                         )
                                                     }
@@ -832,11 +845,11 @@ fun MainDashboardScreen(
                                                     modifier = Modifier
                                                         .background(Color(0xFF1E2436).copy(alpha = 0.8f), RoundedCornerShape(4.dp))
                                                         .border(1.dp, selectedGenreColor.copy(alpha = 0.35f), RoundedCornerShape(4.dp))
-                                                        .padding(horizontal = 7.dp, vertical = 2.5.dp)
+                                                        .padding(horizontal = 7.dp, vertical = 2.dp)
                                                 ) {
                                                     Text(
                                                         text = selected.groupTitle,
-                                                        style = textStyle(10.5.sp, FontWeight.Bold),
+                                                        style = textStyle(10.sp, FontWeight.Bold),
                                                         color = Color(0xFFE2E8F0)
                                                     )
                                                 }
@@ -845,11 +858,11 @@ fun MainDashboardScreen(
                                                     modifier = Modifier
                                                         .background(Color(0xFF1E2436).copy(alpha = 0.8f), RoundedCornerShape(4.dp))
                                                         .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(4.dp))
-                                                        .padding(horizontal = 7.dp, vertical = 2.5.dp)
+                                                        .padding(horizontal = 7.dp, vertical = 2.dp)
                                                 ) {
                                                     Text(
                                                         text = selected.language,
-                                                        style = textStyle(10.5.sp, FontWeight.SemiBold),
+                                                        style = textStyle(10.sp, FontWeight.SemiBold),
                                                         color = Color(0xFFCBD5E1)
                                                     )
                                                 }
@@ -858,18 +871,22 @@ fun MainDashboardScreen(
                                                     Box(
                                                         modifier = Modifier
                                                             .background(Color(0xFF8B5CF6), RoundedCornerShape(4.dp))
-                                                            .padding(horizontal = 7.dp, vertical = 2.5.dp)
+                                                            .padding(horizontal = 7.dp, vertical = 2.dp)
                                                     ) {
                                                         Text(
                                                             text = "ClearKey DRM",
-                                                            style = textStyle(10.5.sp, FontWeight.ExtraBold),
+                                                            style = textStyle(10.sp, FontWeight.ExtraBold),
                                                             color = Color.White
                                                         )
                                                     }
                                                 }
                                             }
 
-                                            Spacer(Modifier.height(16.dp))
+                                            Spacer(Modifier.height(12.dp))
+
+                                            LaunchedEffect(selected.id) {
+                                                viewModel.fetchNativeEpgIfMissing(selected.id, selected.name)
+                                            }
 
                                             // Current Program Card with real-time EPG
                                             val nowNext = remember(selected.id, epgMap.size, now) {
@@ -898,7 +915,7 @@ fun MainDashboardScreen(
                                                     .clip(RoundedCornerShape(12.dp))
                                                     .background(Color(0xFF161A26).copy(alpha = 0.88f))
                                                     .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
-                                                    .padding(14.dp)
+                                                    .padding(horizontal = 12.dp, vertical = 10.dp)
                                             ) {
                                                 Column {
                                                     Row(
@@ -909,13 +926,13 @@ fun MainDashboardScreen(
                                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                                             Box(
                                                                 modifier = Modifier
-                                                                    .size(8.dp)
+                                                                    .size(7.dp)
                                                                     .background(Color(0xFFEF4444), CircleShape)
                                                             )
-                                                            Spacer(Modifier.width(6.dp))
+                                                            Spacer(Modifier.width(5.dp))
                                                             Text(
                                                                 text = "NOW PLAYING",
-                                                                style = textStyle(10.5.sp, FontWeight.ExtraBold),
+                                                                style = textStyle(10.sp, FontWeight.ExtraBold),
                                                                 color = Color(0xFFEF4444)
                                                             )
                                                         }
@@ -923,38 +940,38 @@ fun MainDashboardScreen(
                                                         Box(
                                                             modifier = Modifier
                                                                 .background(Color.White.copy(alpha = 0.06f), RoundedCornerShape(10.dp))
-                                                                .padding(horizontal = 7.dp, vertical = 2.dp)
+                                                                .padding(horizontal = 7.dp, vertical = 1.5.dp)
                                                         ) {
                                                             Text(
                                                                 text = timeRangeText,
-                                                                style = textStyle(10.5.sp, FontWeight.SemiBold),
+                                                                style = textStyle(10.sp, FontWeight.SemiBold),
                                                                 color = Color(0xFF94A3B8)
                                                             )
                                                         }
                                                     }
 
-                                                    Spacer(Modifier.height(6.dp))
+                                                    Spacer(Modifier.height(5.dp))
 
                                                     Text(
                                                         text = programTitle,
-                                                        style = textStyle(17.sp, FontWeight.Bold),
+                                                        style = textStyle(16.sp, FontWeight.Bold),
                                                         color = Color.White,
-                                                        maxLines = 2,
+                                                        maxLines = if (nextEpg != null) 1 else 2,
                                                         overflow = TextOverflow.Ellipsis
                                                     )
 
                                                     if (!currentEpg?.description.isNullOrBlank()) {
-                                                        Spacer(Modifier.height(4.dp))
+                                                        Spacer(Modifier.height(3.dp))
                                                         Text(
                                                             text = currentEpg!!.description,
-                                                            style = textStyle(12.sp, FontWeight.Normal),
+                                                            style = textStyle(11.5.sp, FontWeight.Normal),
                                                             color = Color(0xFF94A3B8),
-                                                            maxLines = 2,
+                                                            maxLines = if (nextEpg != null) 1 else 2,
                                                             overflow = TextOverflow.Ellipsis
                                                         )
                                                     }
 
-                                                    Spacer(Modifier.height(8.dp))
+                                                    Spacer(Modifier.height(6.dp))
 
                                                     JtvProgress(
                                                         fraction = progressFraction,
@@ -967,7 +984,7 @@ fun MainDashboardScreen(
 
                                             // UP NEXT Program Card
                                             if (nextEpg != null) {
-                                                Spacer(Modifier.height(10.dp))
+                                                Spacer(Modifier.height(8.dp))
                                                 Box(
                                                     modifier = Modifier
                                                         .fillMaxWidth()
@@ -978,7 +995,7 @@ fun MainDashboardScreen(
                                                             selectedGenreColor.copy(alpha = 0.20f),
                                                             RoundedCornerShape(10.dp)
                                                         )
-                                                        .padding(12.dp)
+                                                        .padding(horizontal = 12.dp, vertical = 8.dp)
                                                 ) {
                                                     Column {
                                                         Row(
@@ -989,30 +1006,30 @@ fun MainDashboardScreen(
                                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                                 Box(
                                                                     modifier = Modifier
-                                                                        .size(6.5.dp)
+                                                                        .size(6.dp)
                                                                         .background(selectedGenreColor, CircleShape)
                                                                 )
-                                                                Spacer(Modifier.width(6.dp))
+                                                                Spacer(Modifier.width(5.dp))
                                                                 Text(
                                                                     text = "UP NEXT",
-                                                                    style = textStyle(10.sp, FontWeight.ExtraBold),
+                                                                    style = textStyle(9.5.sp, FontWeight.ExtraBold),
                                                                     color = selectedGenreColor
                                                                 )
                                                             }
                                                             if (nextEpg.startEpochMs > 0) {
                                                                 Text(
                                                                     text = formatTimeShort(nextEpg.startEpochMs),
-                                                                    style = textStyle(10.sp, FontWeight.SemiBold),
+                                                                    style = textStyle(9.5.sp, FontWeight.SemiBold),
                                                                     color = Color(0xFF94A3B8)
                                                                 )
                                                             }
                                                         }
 
-                                                        Spacer(Modifier.height(4.dp))
+                                                        Spacer(Modifier.height(3.dp))
 
                                                         Text(
                                                             text = nextEpg.title,
-                                                            style = textStyle(14.sp, FontWeight.SemiBold),
+                                                            style = textStyle(13.sp, FontWeight.SemiBold),
                                                             color = Color.White,
                                                             maxLines = 1,
                                                             overflow = TextOverflow.Ellipsis
@@ -1022,7 +1039,7 @@ fun MainDashboardScreen(
                                                             Spacer(Modifier.height(2.dp))
                                                             Text(
                                                                 text = nextEpg.description,
-                                                                style = textStyle(11.sp, FontWeight.Normal),
+                                                                style = textStyle(10.5.sp, FontWeight.Normal),
                                                                 color = Color(0xFF94A3B8),
                                                                 maxLines = 1,
                                                                 overflow = TextOverflow.Ellipsis
@@ -1033,9 +1050,13 @@ fun MainDashboardScreen(
                                             }
                                         }
 
-                                        // Action buttons at bottom of detail panel
+                                        Spacer(Modifier.height(10.dp))
+
+                                        // Action buttons at bottom of detail panel - GUARANTEED FULL HEIGHT
                                         Row(
-                                            modifier = Modifier.fillMaxWidth(),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .wrapContentHeight(),
                                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
@@ -1045,6 +1066,7 @@ fun MainDashboardScreen(
                                                 primary = true,
                                                 onClick = { onChannelSelected(selected) },
                                                 modifier = Modifier.weight(1.35f),
+                                                minHeight = 44.dp,
                                                 fillMaxWidth = true
                                             )
 
@@ -1054,6 +1076,7 @@ fun MainDashboardScreen(
                                                 primary = false,
                                                 onClick = { viewModel.toggleFavorite(selected.id) },
                                                 modifier = Modifier.weight(1f),
+                                                minHeight = 44.dp,
                                                 fillMaxWidth = true
                                             )
                                         }

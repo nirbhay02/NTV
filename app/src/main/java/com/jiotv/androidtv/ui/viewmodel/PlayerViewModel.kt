@@ -44,6 +44,10 @@ class PlayerViewModel(
     fun getNowNext(channelId: String, channelName: String? = null): NowNext =
         epgRepository.getNowNext(channelId, channelName = channelName)
 
+    fun fetchNativeEpgIfMissing(channelId: String, channelName: String? = null) {
+        epgRepository.fetchNativeEpgIfMissing(channelId, channelName)
+    }
+
     private var playerManager: TvPlayerManager? = null
     private var playbackStateCollectorJob: Job? = null
 
@@ -170,6 +174,9 @@ class PlayerViewModel(
             currentChannel = channel,
             isBuffering = true
         )
+
+        // Preload native live EPG for the playing channel
+        fetchNativeEpgIfMissing(channel.id, channel.name)
 
         channelSwitchJob = viewModelScope.launch {
             val resolvedChannel = if (channel.isZee || channel.id.startsWith("zee_")) {

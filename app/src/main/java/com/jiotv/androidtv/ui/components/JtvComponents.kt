@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -295,14 +296,14 @@ fun JtvButton(
     val c = Jtv.colors
     JtvClickable(
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier.heightIn(min = minHeight),
         container = if (primary) c.acc else c.s2,
         focusedContainer = c.inv,
         shape = RoundedCornerShape(8.dp),
     ) { focused ->
         Box(
             modifier = (if (fillMaxWidth) Modifier.fillMaxWidth() else Modifier)
-                .height(minHeight)
+                .heightIn(min = minHeight)
                 .padding(horizontal = 14.dp, vertical = 6.dp),
             contentAlignment = Alignment.Center
         ) {

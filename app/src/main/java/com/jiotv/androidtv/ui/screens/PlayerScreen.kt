@@ -121,9 +121,17 @@ fun PlayerScreen(
     val numericMatchedChannel by viewModel.numericMatchedChannel.collectAsState()
     val previousChannel by viewModel.previousChannel.collectAsState()
     val recentChannels by viewModel.recentChannels.collectAsState()
+    val epgMap by viewModel.epgMap.collectAsState()
 
     val focusRequester = remember { FocusRequester() }
     val now = rememberMinuteClock()
+
+    // Preload native EPG when playing channel changes
+    LaunchedEffect(playbackState.currentChannel?.id) {
+        playbackState.currentChannel?.let { ch ->
+            viewModel.fetchNativeEpgIfMissing(ch.id, ch.name)
+        }
+    }
 
     // Initialize player with selected channel
     LaunchedEffect(channelId, categoryId) {
@@ -439,7 +447,7 @@ fun PlayerScreen(
                 modifier = Modifier.align(Alignment.BottomCenter)
             ) {
                 playbackState.currentChannel?.let { channel ->
-                    val epgNowNext = remember(channel.id, now) {
+                    val epgNowNext = remember(channel.id, now, epgMap.size) {
                         viewModel.getNowNext(channel.id, channel.name)
                     }
                     MiniChannelSurfingBanner(

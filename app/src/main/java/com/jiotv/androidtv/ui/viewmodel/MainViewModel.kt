@@ -42,6 +42,10 @@ class MainViewModel(
     fun getNowNext(channelId: String, channelName: String? = null): NowNext =
         epgRepository.getNowNext(channelId, channelName = channelName)
 
+    fun fetchNativeEpgIfMissing(channelId: String, channelName: String? = null) {
+        epgRepository.fetchNativeEpgIfMissing(channelId, channelName)
+    }
+
     fun refreshEpg(force: Boolean = true) {
         viewModelScope.launch {
             epgRepository.refreshEpg(force)

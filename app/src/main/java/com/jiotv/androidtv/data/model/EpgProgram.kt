@@ -13,7 +13,11 @@ data class EpgProgram(
     val description: String = "",
     val startEpochMs: Long = 0L,
     val stopEpochMs: Long = 0L,
-    val category: String? = null
+    val category: String? = null,
+    val srno: String? = null,
+    val showId: String? = null,
+    val showtime: String? = null,
+    val isCatchup: Boolean = false
 ) {
     val startMs: Long get() = startEpochMs
     val stopMs: Long get() = stopEpochMs

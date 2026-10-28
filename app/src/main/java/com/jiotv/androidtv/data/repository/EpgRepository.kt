@@ -17,15 +17,21 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONObject
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.InputStream
+import java.net.HttpURLConnection
+import java.net.URL
 import java.text.SimpleDateFormat
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.zip.GZIPInputStream
 
@@ -63,6 +69,11 @@ class EpgRepository(
 
     private val _lastSyncTimestamp = MutableStateFlow(0L)
     val lastSyncTimestamp: StateFlow<Long> = _lastSyncTimestamp.asStateFlow()
+
+    // Native JioTV Real-Time EPG Cache (zero artificial projection, directly from Jio CDN)
+    private val nativeEpgCache = ConcurrentHashMap<String, Pair<Long, List<EpgProgram>>>()
+    private val fetchingChannels = ConcurrentHashMap.newKeySet<String>()
+    private val epgFetchSemaphore = Semaphore(4)
 
     init {
         repoScope.launch {
@@ -214,11 +225,167 @@ class EpgRepository(
         return@withContext success
     }
 
-    private val currentProgramCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, EpgProgram?>>()
+    private val currentProgramCache = ConcurrentHashMap<String, Pair<Long, EpgProgram?>>()
+
+    /**
+     * Resolves the canonical Jio channel ID for API queries.
+     */
+    fun resolveJioChannelId(channelId: String, channelName: String? = null): String {
+        // 1. Try matching by channel name against known Jio aliases if available
+        if (!channelName.isNullOrBlank()) {
+            val clean = channelName.lowercase().replace(Regex("[^a-z0-9]"), "")
+            val candidates = listOf(
+                clean,
+                clean.removeSuffix("hd"),
+                clean + "hd",
+                clean.removeSuffix("sd"),
+                clean.replace("sports", ""),
+                clean.replace("sports", "").removeSuffix("hd")
+            )
+            for (cand in candidates) {
+                val mapped = _nameToIdMap.value[cand]
+                if (mapped != null && mapped.all { it.isDigit() }) {
+                    return mapped
+                }
+            }
+        }
+
+        // 2. Direct digits extraction (e.g. "zee_167" -> "167", "0289" -> "289")
+        val digits = channelId.filter { it.isDigit() }.trimStart('0')
+        if (digits.isNotEmpty()) {
+            return digits
+        }
+
+        return channelId
+    }
+
+    /**
+     * Jio's official real-time EPG for one channel and day offset (0 = today, 1 = tomorrow).
+     * If offset 0 has already ended (Jio API midnight lag), automatically fetches tomorrow and merges.
+     */
+    suspend fun getNativeEpgForChannel(channelId: String, offset: Int = 0): List<EpgProgram> {
+        val day = fetchNativeDay(channelId, offset)
+        val now = System.currentTimeMillis()
+        if (offset != 0 || day.any { it.stopEpochMs > now }) return day
+        val tomorrow = fetchNativeDay(channelId, 1)
+        return (day + tomorrow).distinctBy { it.startEpochMs }.sortedBy { it.startEpochMs }
+    }
+
+    private suspend fun fetchNativeDay(channelId: String, offset: Int): List<EpgProgram> = withContext(Dispatchers.IO) {
+        var connection: HttpURLConnection? = null
+        try {
+            val url = URL("https://jiotvapi.cdn.jio.com/apis/v1.3/getepg/get?offset=$offset&channel_id=$channelId&langId=6")
+            connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.connectTimeout = 10000
+            connection.readTimeout = 15000
+            connection.setRequestProperty("User-Agent", "okhttp/4.12.0")
+            connection.setRequestProperty("appname", "RJIL_JioTV")
+            connection.setRequestProperty("os", "android")
+            connection.setRequestProperty("devicetype", "phone")
+            if (connection.responseCode in 200..299) {
+                val isGzip = "gzip".equals(connection.contentEncoding, ignoreCase = true)
+                val rawStream = connection.inputStream
+                val stream = if (isGzip && rawStream != null) GZIPInputStream(rawStream) else rawStream
+                val text = stream?.bufferedReader()?.use { it.readText() } ?: ""
+                val json = JSONObject(text)
+                val epgArray = json.optJSONArray("epg") ?: return@withContext emptyList()
+                val programs = mutableListOf<EpgProgram>()
+                for (i in 0 until epgArray.length()) {
+                    val obj = epgArray.getJSONObject(i)
+                    val title = obj.optString("showname", "").trim()
+                    val desc = obj.optString("description", "").trim()
+                    val startMs = obj.optLong("startEpoch", 0L)
+                    val stopMs = obj.optLong("endEpoch", 0L)
+                    val srno = if (obj.has("srno")) obj.optString("srno") else null
+                    val showId = if (obj.has("showId")) obj.optString("showId") else null
+                    val showtime = if (obj.has("showtime")) obj.optString("showtime") else null
+                    val catchup = obj.optBoolean("isCatchupAvailable", false)
+                    val genre = firstGenre(obj)
+                    if (title.isNotEmpty() && startMs > 0 && stopMs > 0) {
+                        programs.add(
+                            EpgProgram(
+                                channelId = channelId,
+                                title = title,
+                                description = desc,
+                                startEpochMs = startMs,
+                                stopEpochMs = stopMs,
+                                category = genre,
+                                srno = srno,
+                                showId = showId,
+                                showtime = showtime,
+                                isCatchup = catchup
+                            )
+                        )
+                    }
+                }
+                return@withContext programs
+            }
+        } catch (e: Exception) {
+            Log.w(tag, "Failed to fetch native EPG for channel $channelId (offset $offset): ${e.message}")
+        } finally {
+            connection?.disconnect()
+        }
+        return@withContext emptyList()
+    }
+
+    private fun firstGenre(obj: JSONObject): String? {
+        val genres = obj.optJSONArray("showGenre") ?: return null
+        for (i in 0 until genres.length()) {
+            val g = genres.optString(i, "").trim()
+            if (g.isNotEmpty()) return g
+        }
+        return null
+    }
+
+    /**
+     * Asynchronously fetches native Jio EPG for visible channels on-demand.
+     * Controlled by a 4-permit semaphore to prevent flooding weak TV devices while scrolling.
+     */
+    fun fetchNativeEpgIfMissing(channelId: String, channelName: String? = null) {
+        val resolvedId = resolveJioChannelId(channelId, channelName)
+        val now = System.currentTimeMillis()
+        val cached = nativeEpgCache[resolvedId] ?: nativeEpgCache[channelId]
+        if (cached != null && (now - cached.first < 30 * 60 * 1000L)) {
+            return
+        }
+        if (fetchingChannels.contains(resolvedId)) return
+
+        fetchingChannels.add(resolvedId)
+        repoScope.launch {
+            try {
+                epgFetchSemaphore.withPermit {
+                    val programs = getNativeEpgForChannel(resolvedId)
+                    if (programs.isNotEmpty()) {
+                        val timestamp = System.currentTimeMillis()
+                        nativeEpgCache[resolvedId] = Pair(timestamp, programs)
+                        if (resolvedId != channelId) {
+                            nativeEpgCache[channelId] = Pair(timestamp, programs)
+                        }
+                        currentProgramCache.remove(channelId)
+                        if (channelName != null) currentProgramCache.remove("$channelId:$channelName")
+                        currentProgramCache.remove(resolvedId)
+
+                        val updated = _epgMap.value.toMutableMap()
+                        updated[channelId] = programs
+                        if (resolvedId != channelId) {
+                            updated[resolvedId] = programs
+                        }
+                        _epgMap.value = updated
+                        Log.d(tag, "Native Jio EPG loaded for '$channelName' (ch=$channelId, id=$resolvedId): ${programs.size} programs")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(tag, "Error in fetchNativeEpgIfMissing for $channelId: ${e.message}")
+            } finally {
+                fetchingChannels.remove(resolvedId)
+            }
+        }
+    }
 
     /**
      * Looks up the currently airing program for a channel at [timestamp].
-     * Uses an ultra-fast O(1) in-memory cache to ensure 60fps scroll performance on Android TV / Fire TV.
+     * Prioritizes the authentic Native Jio EPG directly from Jio servers.
      */
     fun getCurrentProgram(channelId: String, timestamp: Long = System.currentTimeMillis(), channelName: String? = null): EpgProgram? {
         val cacheKey = if (!channelName.isNullOrBlank()) "$channelId:$channelName" else channelId
@@ -228,11 +395,37 @@ class EpgRepository(
             if (prog != null && timestamp >= prog.startEpochMs && timestamp < prog.stopEpochMs) {
                 return prog
             }
-            if (Math.abs(timestamp - cachedAt) < 60_000L) {
+            if (Math.abs(timestamp - cachedAt) < 30_000L) {
                 return prog
             }
         }
 
+        // 1. Native JioTV Real-Time EPG (Highest accuracy, zero artificial projection)
+        val resolvedId = resolveJioChannelId(channelId, channelName)
+        val nativeEntry = nativeEpgCache[resolvedId] ?: nativeEpgCache[channelId]
+        if (nativeEntry != null) {
+            val progs = nativeEntry.second
+            val direct = progs.firstOrNull { it.startEpochMs <= timestamp && timestamp < it.stopEpochMs }
+            if (direct != null) {
+                currentProgramCache[cacheKey] = Pair(timestamp, direct)
+                return direct
+            }
+            val upcoming = progs.firstOrNull { it.startEpochMs > timestamp }
+            if (upcoming != null && (upcoming.startEpochMs - timestamp) <= 2 * 3600_000L) {
+                currentProgramCache[cacheKey] = Pair(timestamp, upcoming)
+                return upcoming
+            }
+            val fallback = progs.lastOrNull { it.startEpochMs <= timestamp } ?: progs.firstOrNull()
+            if (fallback != null) {
+                currentProgramCache[cacheKey] = Pair(timestamp, fallback)
+                return fallback
+            }
+        } else {
+            // Kick off background fetch so it updates reactively
+            fetchNativeEpgIfMissing(channelId, channelName)
+        }
+
+        // 2. Fallback to XMLTV static guide
         val prog = computeCurrentProgram(channelId, timestamp, channelName)
         currentProgramCache[cacheKey] = Pair(timestamp, prog)
         return prog
@@ -242,59 +435,38 @@ class EpgRepository(
         val programs = getProgramsForChannel(channelId, channelName, project = true)
         if (programs.isEmpty()) return null
 
-        // 1. Direct match: program actively running right now
         val direct = programs.firstOrNull { it.startEpochMs <= timestamp && timestamp < it.stopEpochMs }
         if (direct != null) return direct
 
-        // 2. Upcoming program today starting within 2 hours
         val upcoming = programs.firstOrNull { it.startEpochMs > timestamp }
         if (upcoming != null && (upcoming.startEpochMs - timestamp) <= 2 * 3600_000L) {
             return upcoming
         }
 
-        // 3. Fallback to latest program if it ended recently or first available
         return programs.lastOrNull { it.startEpochMs <= timestamp } ?: programs.firstOrNull()
     }
 
-    /**
-     * Projects a channel's program schedule to the current day if the EPG feed is from yesterday or 2 days ago.
-     * TV channels air fixed daily recurring time-slot programming (e.g. daily news bulletins, serials, prime time shows).
-     * Shifting the time stamps by integer multiples of 24h ensures Now/Next displays real, accurate schedule data 24/7.
-     */
-    fun projectProgramsToToday(programs: List<EpgProgram>, now: Long = System.currentTimeMillis()): List<EpgProgram> {
-        if (programs.isEmpty()) return emptyList()
-        val oneDayMs = 24 * 3600_000L
-
-        // If there is already a program active now or starting in the future, no shift needed
-        val hasActiveOrFuture = programs.any { it.stopEpochMs > now }
-        if (hasActiveOrFuture) return programs
-
-        // Feed ended in the past; calculate how many 24-hour periods to shift forward
-        val maxStop = programs.maxOfOrNull { it.stopEpochMs } ?: return programs
-        if (maxStop >= now) return programs
-
-        val diffMs = now - maxStop
-        val daysToShift = (diffMs / oneDayMs) + 1
-        val shiftMs = daysToShift * oneDayMs
-
-        return programs.map { prog ->
-            prog.copy(
-                startEpochMs = prog.startEpochMs + shiftMs,
-                stopEpochMs = prog.stopEpochMs + shiftMs
-            )
-        }
+    fun projectProgramsToToday(programs: List<EpgProgram>, now: Long = System.currentTimeMillis(), channelName: String? = null): List<EpgProgram> {
+        return Companion.projectProgramsToToday(programs, now, channelName)
     }
 
     /**
-     * Returns the full list of programs available for a channel, projected to the current date by default.
+     * Returns the full list of programs available for a channel.
      */
     fun getProgramsForChannel(
         channelId: String,
         channelName: String? = null,
         project: Boolean = true
     ): List<EpgProgram> {
+        // Prioritize native Jio EPG if available
+        val resolvedId = resolveJioChannelId(channelId, channelName)
+        val nativeEntry = nativeEpgCache[resolvedId] ?: nativeEpgCache[channelId]
+        if (nativeEntry != null && nativeEntry.second.isNotEmpty()) {
+            return nativeEntry.second
+        }
+
         val raw = getRawProgramsForChannel(channelId, channelName)
-        return if (project) projectProgramsToToday(raw) else raw
+        return if (project) projectProgramsToToday(raw, channelName = channelName) else raw
     }
 
     private fun getRawProgramsForChannel(channelId: String, channelName: String? = null): List<EpgProgram> {
@@ -344,15 +516,24 @@ class EpgRepository(
 
     /**
      * Returns the Now/Next/Later guide block for a channel.
+     * Uses the Native Jio EPG if available, falling back to XMLTV.
      */
     fun getNowNext(
         channelId: String,
         timestamp: Long = System.currentTimeMillis(),
         channelName: String? = null
     ): NowNext {
+        val resolvedId = resolveJioChannelId(channelId, channelName)
+        val nativeEntry = nativeEpgCache[resolvedId] ?: nativeEpgCache[channelId]
+        if (nativeEntry != null && nativeEntry.second.isNotEmpty()) {
+            return nowNext(nativeEntry.second, timestamp)
+        }
+
+        fetchNativeEpgIfMissing(channelId, channelName)
         val programs = getProgramsForChannel(channelId, channelName, project = true)
         return nowNext(programs, timestamp)
     }
+
 
     private fun isGzipStream(file: File): Boolean {
         if (!file.exists() || file.length() < 2) return false
@@ -419,6 +600,43 @@ class EpgRepository(
                 .filter { it.isNotEmpty() }
                 .take(max)
                 .joinToString(", ")
+        }
+
+        fun isMovieChannel(name: String?): Boolean {
+            if (name.isNullOrBlank()) return false
+            val n = name.lowercase()
+            return n.contains("cinema") || n.contains("max") || n.contains("gold") ||
+                   n.contains("pictures") || n.contains("movie") || n.contains("film") ||
+                   n.contains("cineplex") || n.contains("action") || n.contains("bollywood") ||
+                   n.contains("talkies")
+        }
+
+        /**
+         * Projects a channel's program schedule to the current day if the XMLTV feed is from yesterday.
+         * Note: Movie channels are never projected forward because movies do not repeat on fixed 24h slots.
+         */
+        fun projectProgramsToToday(programs: List<EpgProgram>, now: Long = System.currentTimeMillis(), channelName: String? = null): List<EpgProgram> {
+            if (programs.isEmpty()) return emptyList()
+            val hasActiveOrFuture = programs.any { it.stopEpochMs > now }
+            if (hasActiveOrFuture) return programs
+
+            // Movie channels air different movies daily: never project expired schedules forward!
+            if (isMovieChannel(channelName)) return emptyList()
+
+            val maxStop = programs.maxOfOrNull { it.stopEpochMs } ?: return programs
+            if (maxStop >= now) return programs
+
+            val oneDayMs = 24 * 3600_000L
+            val diffMs = now - maxStop
+            val daysToShift = (diffMs / oneDayMs) + 1
+            val shiftMs = daysToShift * oneDayMs
+
+            return programs.map { prog ->
+                prog.copy(
+                    startEpochMs = prog.startEpochMs + shiftMs,
+                    stopEpochMs = prog.stopEpochMs + shiftMs
+                )
+            }
         }
     }
 }

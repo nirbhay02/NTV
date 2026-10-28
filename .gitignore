@@ -25,3 +25,4 @@ __pycache__/
 scripts/*.gz
 scripts/*.m3u
 scripts/*.png
+scratch/

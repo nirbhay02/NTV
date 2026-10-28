@@ -1,12 +1,12 @@
 ﻿{
-    "versionCode":  10,
-    "versionName":  "2.0",
-    "title":  "NTV Android TV v2.0",
-    "changelog":  "• Major Glassmorphic UI Overhaul: Obsidian backdrop with dynamic ambient genre lighting, frosted top bar with live server halo, category rail with neon indicators, glowing channel cards, and floating showcase hero panel.\n• All-In-One OTT EPG Integration: Switched primary EPG source to mitthu786/tvepg (2,200+ channels across JioTV, Tata Play, ZEE5, SonyLIV, Sun NXT with 52,000+ programmes).\n• Streamlined Playback Engine: Standardized on stable ExoPlayer / Media3 streaming pipeline with hardware-accelerated decoding and ClearKey DRM support.\n• Enhanced Navigation \u0026 Stability: Snappy D-pad response, instant category channel preview, and 60fps Compose scrolling.",
-    "size":  19472688,
+    "versionCode":  11,
+    "versionName":  "2.1",
+    "title":  "NTV Android TV v2.1",
+    "changelog":  "Accurate Native JioTV EPG Guide, fixed squished dashboard action buttons, improved focus styling, and playback stability.",
+    "size":  19477929,
     "assets":  {
-                   "universal":  "https://github.com/nirbhay02/NTV/releases/download/v2.0/NTV_v2.0.apk",
-                   "arm64":  "https://github.com/nirbhay02/NTV/releases/download/v2.0/NTV_v2.0_arm64.apk",
-                   "firetv":  "https://github.com/nirbhay02/NTV/releases/download/v2.0/NTV_v2.0_firetv_armv7.apk"
+                   "universal":  "https://github.com/nirbhay02/NTV/releases/download/v2.1/NTV_v2.1.apk",
+                   "arm64":  "https://github.com/nirbhay02/NTV/releases/download/v2.1/NTV_v2.1_arm64.apk",
+                   "firetv":  "https://github.com/nirbhay02/NTV/releases/download/v2.1/NTV_v2.1_firetv_armv7.apk"
                }
 }
