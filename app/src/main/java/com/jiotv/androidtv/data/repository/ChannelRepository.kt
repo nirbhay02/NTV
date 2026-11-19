@@ -198,43 +198,50 @@ class ChannelRepository(
         return Result.failure(Exception(errorMsg))
     }
 
-    private fun mergeChannels(serverChannels: List<Channel>, thirdParty: List<Channel>): List<Channel> {
-        if (thirdParty.isEmpty()) return serverChannels
-        if (serverChannels.isEmpty()) return thirdParty
+    companion object {
+        internal fun mergeChannels(serverChannels: List<Channel>, thirdParty: List<Channel>): List<Channel> {
+            if (thirdParty.isEmpty()) return serverChannels
+            if (serverChannels.isEmpty()) return thirdParty
 
-        val result = mutableListOf<Channel>()
-        val addedCleanNames = mutableSetOf<String>()
-        val addedIds = mutableSetOf<String>()
+            val result = mutableListOf<Channel>()
+            val addedCleanNames = mutableSetOf<String>()
+            val addedNumbers = mutableSetOf<Int>()
+            val addedIds = mutableSetOf<String>()
 
-        fun clean(name: String) = name.lowercase().replace(Regex("[^a-z0-9]"), "")
+            fun clean(name: String) = name.lowercase().replace(Regex("[^a-z0-9]"), "")
 
-        // 1. Prioritize all curated third-party channels FIRST (Zee Network ClearKey DRM streams & Sports)
-        for (tp in thirdParty) {
-            val cName = clean(tp.name)
-            if (cName.isNotEmpty() && cName in addedCleanNames) continue
-            result.add(tp)
-            addedIds.add(tp.id)
-            if (cName.isNotEmpty()) addedCleanNames.add(cName)
-        }
+            // 1. Add all server channels from JioTV Go server first (official, authenticated live streams)
+            for (sc in serverChannels) {
+                val cName = clean(sc.name)
+                val isZee = sc.isZee || ChannelFilter.isZeeChannel(sc)
+                val processedChannel = if (isZee) {
+                    sc.copy(
+                        isZee = true,
+                        groupTitle = if (sc.groupTitle.contains("Zee", ignoreCase = true)) sc.groupTitle else "Zee Network"
+                    )
+                } else {
+                    sc
+                }
+                result.add(processedChannel)
+                addedIds.add(sc.id)
+                if (sc.number > 0) addedNumbers.add(sc.number)
+                if (cName.isNotEmpty()) addedCleanNames.add(cName)
+            }
 
-        // 2. Add server channels from JioTV Go server that are not already covered
-        for (sc in serverChannels) {
-            val cName = clean(sc.name)
-            // If it's a Zee channel and already covered in thirdParty, skip server's version
-            if (sc.isZee || ChannelFilter.isZeeChannel(sc)) {
-                if (cName in addedCleanNames || sc.id in addedIds) {
+            // 2. Add curated third-party channels (Zee TV HD 167, Zee Cinema HD 165, Star Sports, Sony Sports) that are not in serverChannels
+            for (tp in thirdParty) {
+                val cName = clean(tp.name)
+                if (tp.number in addedNumbers || (cName.isNotEmpty() && cName in addedCleanNames) || tp.id in addedIds) {
                     continue
                 }
+                result.add(tp)
+                addedIds.add(tp.id)
+                if (tp.number > 0) addedNumbers.add(tp.number)
+                if (cName.isNotEmpty()) addedCleanNames.add(cName)
             }
-            if (sc.id in addedIds || (cName.isNotEmpty() && cName in addedCleanNames)) {
-                continue
-            }
-            result.add(sc)
-            addedIds.add(sc.id)
-            if (cName.isNotEmpty()) addedCleanNames.add(cName)
-        }
 
-        return result.sortedBy { if (it.number > 0) it.number else 9999 }
+            return result.sortedBy { if (it.number > 0) it.number else 9999 }
+        }
     }
 
     fun getZeeChannels(): List<Channel> =

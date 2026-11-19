@@ -295,20 +295,30 @@ class TvPlayerManager(
             Log.e(TAG, "Playback error [${error.errorCodeName} / ${error.errorCode}]: $causeMsg", error)
 
             val currentChannel = _playbackState.value.currentChannel
-            val isClearKey = currentChannel?.licenseKeyUrl?.startsWith("jwk:", ignoreCase = true) == true || currentChannel?.isZee == true
 
-            // jiotv_go_app DRM Auto-Fallback Engine (only for official JioTV Widevine streams)
-            if (useDrm && currentChannel != null && !isClearKey) {
+            // Automatic fallback engine (DRM, ClearKey, or token 403)
+            if (currentChannel != null && drmRetryCount < 2) {
                 drmRetryCount++
-                if (drmRetryCount >= 2) {
-                    Log.w(TAG, "DRM failed 2 times for '${currentChannel.name}', falling back to clean HLS stream")
+                val fallbackUrl = com.jiotv.androidtv.data.repository.ZeeRepository.getFallbackStreamUrl(
+                    currentChannel.id,
+                    currentChannel.number,
+                    serverConfig.baseUrl
+                )
+                if (!fallbackUrl.isNullOrEmpty() && fallbackUrl != currentChannel.streamUrl) {
+                    Log.w(TAG, "Stream failed for '${currentChannel.name}' (attempt $drmRetryCount), falling back to: $fallbackUrl")
+                    val fallbackChannel = currentChannel.copy(
+                        streamUrl = fallbackUrl,
+                        manifestType = if (fallbackUrl.contains(".mpd")) "mpd" else "m3u8",
+                        licenseKeyUrl = null,
+                        licenseType = null
+                    )
+                    useDrm = false
+                    playChannel(fallbackChannel, forceHlsFallback = true)
+                    return
+                } else if (useDrm) {
+                    Log.w(TAG, "DRM failed $drmRetryCount time(s) for '${currentChannel.name}', falling back to clean HLS stream")
                     useDrm = false
                     playChannel(currentChannel, forceHlsFallback = true)
-                    return
-                } else {
-                    Log.w(TAG, "DRM failed $drmRetryCount time(s), retrying...")
-                    exoPlayer?.prepare()
-                    exoPlayer?.play()
                     return
                 }
             }
@@ -367,8 +377,9 @@ class TvPlayerManager(
         )
 
         val rawUrl = serverConfig.resolveStreamUrl(channel.streamUrl)
-        val channelId = channel.id.ifEmpty {
-            rawUrl.substringAfterLast("/").substringBefore("?").substringBefore(".")
+        val cleanChId = channel.id.removePrefix("zee_")
+        val channelId = cleanChId.ifEmpty {
+            if (channel.number > 0) channel.number.toString() else rawUrl.substringAfterLast("/").substringBefore("?").substringBefore(".")
         }
 
         // URL Normalization (ported from jiotv_go_app HelperUtils.normalizePlaybackUrl)

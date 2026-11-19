@@ -8,9 +8,19 @@ VERSION = sys.argv[1] if len(sys.argv) > 1 else "v2.1"
 TITLE = sys.argv[2] if len(sys.argv) > 2 else f"NTV Android TV {VERSION} — Native JioTV EPG & Action Button UI Fix"
 NOTES_PATH = f"releases/{VERSION}/RELEASE_NOTES.md"
 
-# 1. Get Token from Git Credential Helper
-res = subprocess.run(['git', 'credential', 'fill'], input='protocol=https\nhost=github.com\n', text=True, capture_output=True)
-token = [l.split('=', 1)[1] for l in res.stdout.splitlines() if l.startswith('password=')][0]
+# 1. Get Token from Environment or Git Credential Helper
+token = os.environ.get('GITHUB_TOKEN') or os.environ.get('GH_TOKEN')
+if not token:
+    env = os.environ.copy()
+    env['GIT_TERMINAL_PROMPT'] = '0'
+    res = subprocess.run(['git', 'credential', 'fill'], input='protocol=https\nhost=github.com\n', text=True, capture_output=True, env=env)
+    passwords = [l.split('=', 1)[1] for l in res.stdout.splitlines() if l.startswith('password=')]
+    if passwords:
+        token = passwords[0]
+
+if not token:
+    print("Error: No GitHub token found in GITHUB_TOKEN/GH_TOKEN or git credentials.")
+    sys.exit(1)
 headers = {
     'Authorization': f'token {token}',
     'User-Agent': 'Mozilla/5.0',

@@ -179,14 +179,14 @@ class PlayerViewModel(
         fetchNativeEpgIfMissing(channel.id, channel.name)
 
         channelSwitchJob = viewModelScope.launch {
+            val serverConfig = serverConfigRepository.serverConfig.first()
             val resolvedChannel = if (channel.isZee || channel.id.startsWith("zee_")) {
-                ZeeRepository.getUpdatedChannel(context, channel)
+                ZeeRepository.getUpdatedChannel(context, channel, serverBaseUrl = serverConfig.baseUrl)
             } else {
                 channel
             }
 
             if (playerManager == null) {
-                val serverConfig = serverConfigRepository.serverConfig.first()
                 val manager = TvPlayerManager(context, serverConfig, viewModelScope)
                 playerManager = manager
                 _exoPlayer.value = manager.getPlayer()

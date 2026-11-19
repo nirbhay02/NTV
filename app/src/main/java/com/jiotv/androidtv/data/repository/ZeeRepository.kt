@@ -62,6 +62,48 @@ object ZeeRepository {
         val logoUrl: String = ""
     )
 
+    /**
+     * Verified live CloudFront HLS fallback streams for Zee channels.
+     * These require no auth tokens, no DRM decryption, and provide rock-solid 1080p/720p streams.
+     */
+    val CLOUD_FRONT_FALLBACKS = mapOf(
+        // Zee TV HD
+        167 to "https://d1rc86nwwc9fag.cloudfront.net/260723/zeetvapachd_2500/chunks.m3u8",
+        // Zee Cinema HD
+        165 to "https://da86m1sqpm3o0.cloudfront.net/28072023/smil:zeecinemaapachd.smil/chunklist_b2628000.m3u8",
+        // Zee Marathi HD
+        1360 to "https://d1rc86nwwc9fag.cloudfront.net/260723/smil:zeemarathi.smil/chunklist_b2628000.m3u8",
+        // Zee Telugu HD
+        3278 to "https://d1rc86nwwc9fag.cloudfront.net/260723/smil:zeetelugu.smil/chunklist_b2628000.m3u8",
+        // Zee Bangla HD
+        1357 to "https://d1rc86nwwc9fag.cloudfront.net/260723/smil:zeebangla.smil/chunklist_b2628000.m3u8",
+        625 to "https://d1rc86nwwc9fag.cloudfront.net/260723/smil:zeebangla.smil/chunklist_b2628000.m3u8",
+        // Zee News
+        504 to "https://dknttpxmr0dwf.cloudfront.net/index_57.m3u8",
+        // Zee 24 Taas
+        442 to "https://dgrvlduwztkd4.cloudfront.net/index_1.m3u8",
+        // Zee Business
+        657 to "https://dwby15d04agvq.cloudfront.net/index_1.m3u8",
+        // Zee Bharat
+        652 to "https://d1hp2yai3k4ork.cloudfront.net/index_4.m3u8",
+        // Zee Bihar Jharkhand
+        661 to "https://d3vmwjy7v49lo5.cloudfront.net/index_4.m3u8",
+        // Zee Delhi NCR Haryana
+        724 to "https://d2s40ae9uabrl.cloudfront.net/_4.m3u8",
+        // Zee MP Chhattisgarh
+        658 to "https://d1ek9hdbw9xxcw.cloudfront.net/index_4.m3u8",
+        // Zee Punjab Haryana HP
+        654 to "https://d31s6sxcz6vnac.cloudfront.net/index_3.m3u8",
+        // Zee Rajasthan
+        659 to "https://d2jso9g61rg1h8.cloudfront.net/index_3.m3u8",
+        // Zee UP Uttarakhand
+        572 to "https://duw35ict5q7th.cloudfront.net/index_3.m3u8",
+        // Zee 24 Ghanta
+        464 to "https://d2dsoyvkr33m05.cloudfront.net/index_1.m3u8",
+        // Zee 24 Kalak
+        929 to "https://d2i4me5ac6ausm.cloudfront.net/index_1.m3u8"
+    )
+
     private val CHANNEL_METADATA = mapOf(
         // Zee Channels
         "zeetvhd" to ZeeChannelMeta(167, "Zee TV HD", "Entertainment", "Hindi", 104),
@@ -100,6 +142,12 @@ object ZeeRepository {
         "zeezesthd" to ZeeChannelMeta(2757, "Zee Zest HD", "Lifestyle", "English"),
         "zeethirai" to ZeeChannelMeta(2256, "Zee Thirai", "Movies", "Tamil", 922),
         "zeethiraihd" to ZeeChannelMeta(3051, "Zee Thirai HD", "Movies", "Tamil", 923),
+        "zeebanglahd" to ZeeChannelMeta(625, "Zee Bangla HD", "Entertainment", "Bengali", 823),
+        "zeebangla" to ZeeChannelMeta(625, "Zee Bangla", "Entertainment", "Bengali", 823),
+        "zeeteluguhd" to ZeeChannelMeta(3278, "Zee Telugu HD", "Entertainment", "Telugu", 951),
+        "zeetelugu" to ZeeChannelMeta(627, "Zee Telugu", "Entertainment", "Telugu", 950),
+        "zee24ghanta" to ZeeChannelMeta(464, "Zee 24 Ghanta", "News", "Bengali", 9012),
+        "zee24kalak" to ZeeChannelMeta(929, "Zee 24 Kalak", "News", "Gujarati", 9022),
 
         // Star Sports Channels
         "starsportsselect1hd" to ZeeChannelMeta(460, "Star Sports Select 1 HD", "Sports", "English", 410),
@@ -217,101 +265,90 @@ object ZeeRepository {
 
     private const val EMBEDDED_M3U = """#EXTM3U
 
-#EXTINF:-1 tvg-name="Zee TV HD" tvg-logo="https://img.media.jio.com/tvpimages/66/3/300378_1753869902174_l_medium.jpg" group-title="Entertainment", Zee TV HD
+#EXTINF:-1 tvg-id="167" tvg-name="Zee TV HD" tvg-logo="https://img.media.jio.com/tvpimages/66/3/300378_1753869902174_l_medium.jpg" group-title="Entertainment" tvg-language="Hindi", Zee TV HD
 #KODIPROP:inputstream=inputstream.adaptive
-#KODIPROP:inputstream.adaptive.manifest_type=mpd
-#KODIPROP:inputstream.adaptive.license_type=clearkey
-#KODIPROP:inputstream.adaptive.license_key=7b3d2290787255ac9cdaf43ae31eacce:d0edfa8ebd655926c5e2932d8c59b3d1,24a0c2ce46925d59a5d077532901d775:68c268bda3c33d677db5b77ae8104d09,ef68d6487db25f0fbb08dfd653512fde:c03242e3834dadbb79ccc1cad9afa94d,a03b708ddf985f6eb6513ac0293246a9:e2b653d57ea9684d8e5b2a035105f0af,b553a92b758259b88f48ad521f41cb54:5cb71d334e2f8600addd230370af0e8f
-#EXTVLCOPT:http-user-agent=@shoebbro
-#EXTVLCOPT:http-referrer=https://www.jiotv.com/
-#EXTVLCOPT:http-extra-headers=Origin: https://www.jiotv.com
-#EXTVLCOPT:http-cookie=__hdnea__=st=1791642019~exp=1791663619~acl=/bpk-tv/ZeeTVHD_BTS/WDVLive/*~hmac=461137246d43be9e977808ff511fb441bfe9aa302be22d9e886080108edc90bf
-#EXTHTTP:{"Origin":"https://www.jiotv.com","Referer":"https://www.jiotv.com/","Cookie":"__hdnea__=st=1791642019~exp=1791663619~acl=/bpk-tv/ZeeTVHD_BTS/WDVLive/*~hmac=461137246d43be9e977808ff511fb441bfe9aa302be22d9e886080108edc90bf"}
-https://jiotvpllive.cdn.jio.com/bpk-tv/ZeeTVHD_BTS/WDVLive/index.mpd?|cookie=__hdnea__=st=1791642019~exp=1791663619~acl=/bpk-tv/ZeeTVHD_BTS/WDVLive/*~hmac=461137246d43be9e977808ff511fb441bfe9aa302be22d9e886080108edc90bf&referer=https://www.jiotv.com/&origin=https://www.jiotv.com&user-agent=@shoebbro
+#KODIPROP:inputstream.adaptive.manifest_type=m3u8
+https://d1rc86nwwc9fag.cloudfront.net/260723/zeetvapachd_2500/chunks.m3u8
 
-#EXTINF:-1 tvg-name="Zee Cinema HD" tvg-logo="https://img.media.jio.com/tvpimages/76/6/300330_1768289569650_l_medium.jpg" group-title="Movies", Zee Cinema HD
+#EXTINF:-1 tvg-id="165" tvg-name="Zee Cinema HD" tvg-logo="https://img.media.jio.com/tvpimages/76/6/300330_1768289569650_l_medium.jpg" group-title="Movies" tvg-language="Hindi", Zee Cinema HD
 #KODIPROP:inputstream=inputstream.adaptive
-#KODIPROP:inputstream.adaptive.manifest_type=mpd
-#KODIPROP:inputstream.adaptive.license_type=clearkey
-#KODIPROP:inputstream.adaptive.license_key=27eb79e6c8ef594ea8508011b606bb02:1dd808f8b8e367dd9205128bc0865dee,2f73fd6fc33055f0931e6b52989a968b:67821d540d498438c3c84e13b8971f77,eaf2c59f5bad5ce293838b116585174c:a85d1ce160047f14bfb2b93a1ef23859,70df41ef3a3654d7b1cb13fbb2430480:dd83f24ebf2fb5ef5aafb075b9451d44,ae9a750f39ee523c88f71c47872029ce:ce973e45f923884cce42020da0fb6398
-#EXTVLCOPT:http-user-agent=@shoebbro
-#EXTVLCOPT:http-referrer=https://www.jiotv.com/
-#EXTVLCOPT:http-extra-headers=Origin: https://www.jiotv.com
-#EXTVLCOPT:http-cookie=__hdnea__=st=1791642019~exp=1791663619~acl=/bpk-tv/ZeeCinemaHD_BTS/WDVLive/*~hmac=7641963a5cb354e76e636474ac69d315c6227f2e63b81d1be3d8e16d40532ab6
-#EXTHTTP:{"Origin":"https://www.jiotv.com","Referer":"https://www.jiotv.com/","Cookie":"__hdnea__=st=1791642019~exp=1791663619~acl=/bpk-tv/ZeeCinemaHD_BTS/WDVLive/*~hmac=7641963a5cb354e76e636474ac69d315c6227f2e63b81d1be3d8e16d40532ab6"}
-https://jiotvpllive.cdn.jio.com/bpk-tv/ZeeCinemaHD_BTS/WDVLive/index.mpd?|cookie=__hdnea__=st=1791642019~exp=1791663619~acl=/bpk-tv/ZeeCinemaHD_BTS/WDVLive/*~hmac=7641963a5cb354e76e636474ac69d315c6227f2e63b81d1be3d8e16d40532ab6&referer=https://www.jiotv.com/&origin=https://www.jiotv.com&user-agent=@shoebbro
+#KODIPROP:inputstream.adaptive.manifest_type=m3u8
+https://da86m1sqpm3o0.cloudfront.net/28072023/smil:zeecinemaapachd.smil/chunklist_b2628000.m3u8
 
-#EXTINF:-1 tvg-name="Zee Talkies" tvg-logo="https://img.media.jio.com/tvpimages/1/19/300351_1765975816671_l_medium.jpg" group-title="Movies", Zee Talkies
+#EXTINF:-1 tvg-id="1360" tvg-name="Zee Marathi HD" tvg-logo="https://img.media.jio.com/tvpimages/85/30/300360_1753198889988_l_medium.jpg" group-title="Entertainment" tvg-language="Marathi", Zee Marathi HD
 #KODIPROP:inputstream=inputstream.adaptive
-#KODIPROP:inputstream.adaptive.manifest_type=mpd
-#KODIPROP:inputstream.adaptive.license_type=clearkey
-#KODIPROP:inputstream.adaptive.license_key=b495c6bba74d52039b0d310ef2bc9cc2:8672293f4472f01fdf74660e2e0fd602,d017974d08965ef19ddb80da7bbd9678:14cc669c720dca403ec5566fc97dbff8,ca5d6e1f882750ec8ec4ae5072acd431:d41408529436e60492dde72f0ef493e5,15fd29096c4f52a4b546cc2558a6c1d8:a8f9efa6a718abc90da7eb6d039ab688,dca1d44892b452a7a1121842007ef3b4:c0709e63f9ed2eb851f7a325c7e65b3e
-#EXTVLCOPT:http-user-agent=@shoebbro
-#EXTVLCOPT:http-referrer=https://www.jiotv.com/
-#EXTVLCOPT:http-extra-headers=Origin: https://www.jiotv.com
-#EXTVLCOPT:http-cookie=__hdnea__=st=1791642019~exp=1791663619~acl=/bpk-tv/ZeeTalkies_BTS/WDVLive/*~hmac=225888b9717cd2bae6b9af04f4b76064a712cbebc614cedd5b0995aa844c6e49
-#EXTHTTP:{"Origin":"https://www.jiotv.com","Referer":"https://www.jiotv.com/","Cookie":"__hdnea__=st=1791642019~exp=1791663619~acl=/bpk-tv/ZeeTalkies_BTS/WDVLive/*~hmac=225888b9717cd2bae6b9af04f4b76064a712cbebc614cedd5b0995aa844c6e49"}
-https://jiotvpllive.cdn.jio.com/bpk-tv/ZeeTalkies_BTS/WDVLive/index.mpd?|cookie=__hdnea__=st=1791642019~exp=1791663619~acl=/bpk-tv/ZeeTalkies_BTS/WDVLive/*~hmac=225888b9717cd2bae6b9af04f4b76064a712cbebc614cedd5b0995aa844c6e49&referer=https://www.jiotv.com/&origin=https://www.jiotv.com&user-agent=@shoebbro
+#KODIPROP:inputstream.adaptive.manifest_type=m3u8
+https://d1rc86nwwc9fag.cloudfront.net/260723/smil:zeemarathi.smil/chunklist_b2628000.m3u8
 
-#EXTINF:-1 tvg-name="And Pictures HD" tvg-logo="https://img.media.jio.com/tvpimages/57/85/300328_1768298228357_l_medium.jpg" group-title="Movies",And Pictures HD
+#EXTINF:-1 tvg-id="3278" tvg-name="Zee Telugu HD" tvg-logo="https://jiotv.catchup.cdn.jio.com/dare_images/images/Zee_Telugu_HD.png" group-title="Entertainment" tvg-language="Telugu", Zee Telugu HD
 #KODIPROP:inputstream=inputstream.adaptive
-#KODIPROP:inputstream.adaptive.manifest_type=mpd
-#KODIPROP:inputstream.adaptive.license_type=clearkey
-#KODIPROP:inputstream.adaptive.license_key=44fe94d36c805cb19068afa8afefa67d:807af52ba671f10c1127cf7901b16b0a,f46e0d24d4e15eb99dd8739315be218b:6fe0210a22a92a893c55253163151245,e043d52515415ade82356a6546fb99c6:68062e7cb45e88955d64f87f110f0047,22b6b02b053d5271a874fc37b8b62f5c:b74cff91d1091c9968c61ea4c8cb8a3b,b4c6014d89505062bc35dee0ed519bed:2eac17b4204a2fa7a0f67ce63288fafe
-#EXTVLCOPT:http-user-agent=@shoebbro
-#EXTVLCOPT:http-referrer=https://www.jiotv.com/
-#EXTVLCOPT:http-extra-headers=Origin: https://www.jiotv.com
-#EXTVLCOPT:http-cookie=__hdnea__=st=1791642019~exp=1791663619~acl=/bpk-tv/AndPicturesHD_BTS/WDVLive/*~hmac=4fa42f79a92d19fb2210d2ebca7878bc7b461a9b8cb0163e2b6812aae8dc88f3
-#EXTHTTP:{"Origin":"https://www.jiotv.com","Referer":"https://www.jiotv.com/","Cookie":"__hdnea__=st=1791642019~exp=1791663619~acl=/bpk-tv/AndPicturesHD_BTS/WDVLive/*~hmac=4fa42f79a92d19fb2210d2ebca7878bc7b461a9b8cb0163e2b6812aae8dc88f3"}
-https://jiotvpllive.cdn.jio.com/bpk-tv/AndPicturesHD_BTS/WDVLive/index.mpd?|cookie=__hdnea__=st=1791642019~exp=1791663619~acl=/bpk-tv/AndPicturesHD_BTS/WDVLive/*~hmac=4fa42f79a92d19fb2210d2ebca7878bc7b461a9b8cb0163e2b6812aae8dc88f3&referer=https://www.jiotv.com/&origin=https://www.jiotv.com&user-agent=@shoebbro
+#KODIPROP:inputstream.adaptive.manifest_type=m3u8
+https://d1rc86nwwc9fag.cloudfront.net/260723/smil:zeetelugu.smil/chunklist_b2628000.m3u8
 
-#EXTINF:-1 tvg-name="And Pictures" tvg-logo="https://jiotv.catchup.cdn.jio.com/dare_images/images/AndPictures.png" group-title="Movies",And Pictures
+#EXTINF:-1 tvg-id="625" tvg-name="Zee Bangla HD" tvg-logo="https://jiotv.catchup.cdn.jio.com/dare_images/images/Zee_Bangla_HD.png" group-title="Entertainment" tvg-language="Bengali", Zee Bangla HD
 #KODIPROP:inputstream=inputstream.adaptive
-#KODIPROP:inputstream.adaptive.manifest_type=mpd
-#KODIPROP:inputstream.adaptive.license_type=clearkey
-#KODIPROP:inputstream.adaptive.license_key=c6ee62a2b6485eefa951aa40fd36c9a5:56222bbfc47fba1b39ae7245103f32df,01ade7b313d75a3c894d89e4d88788c8:e4f4594eb6d2028a4808f939f7d2803d,8fb310f59da250229c68db35c6b7071b:fee30274aaafa7c1c0ab9b762db2b967,32a67aba16855c59954285d162a2351d:b943182ec142edfd95579436460d764b,c81848c0757c5b468f46e19acabd9e8d:31ffc84e75ecd120a161d4b96b997075
-#EXTVLCOPT:http-user-agent=@shoebbro
-#EXTVLCOPT:http-referrer=https://www.jiotv.com/
-#EXTVLCOPT:http-extra-headers=Origin: https://www.jiotv.com
-#EXTVLCOPT:http-cookie=__hdnea__=st=1791642019~exp=1791663619~acl=/bpk-tv/AndPictures_BTS/WDVLive/*~hmac=0fa2335ac8aa900a5337f410afa67d7dca0efb3ffd55ed6120b7144bf69eb0c0
-#EXTHTTP:{"Origin":"https://www.jiotv.com","Referer":"https://www.jiotv.com/","Cookie":"__hdnea__=st=1791642019~exp=1791663619~acl=/bpk-tv/AndPictures_BTS/WDVLive/*~hmac=0fa2335ac8aa900a5337f410afa67d7dca0efb3ffd55ed6120b7144bf69eb0c0"}
-https://jiotvpllive.cdn.jio.com/bpk-tv/AndPictures_BTS/WDVLive/index.mpd?|cookie=__hdnea__=st=1791642019~exp=1791663619~acl=/bpk-tv/AndPictures_BTS/WDVLive/*~hmac=0fa2335ac8aa900a5337f410afa67d7dca0efb3ffd55ed6120b7144bf69eb0c0&referer=https://www.jiotv.com/&origin=https://www.jiotv.com&user-agent=@shoebbro
+#KODIPROP:inputstream.adaptive.manifest_type=m3u8
+https://d1rc86nwwc9fag.cloudfront.net/260723/smil:zeebangla.smil/chunklist_b2628000.m3u8
 
-#EXTINF:-1 tvg-name="Zee Yuva" tvg-logo="https://img.media.jio.com/tvpimages/98/27/300397_1768297472629_l_medium.jpg" group-title="Entertainment", Zee Yuva
+#EXTINF:-1 tvg-id="504" tvg-name="Zee News" tvg-logo="https://jiotv.catchup.cdn.jio.com/dare_images/images/Zee_News.png" group-title="News" tvg-language="Hindi", Zee News
 #KODIPROP:inputstream=inputstream.adaptive
-#KODIPROP:inputstream.adaptive.manifest_type=mpd
-#KODIPROP:inputstream.adaptive.license_type=clearkey
-#KODIPROP:inputstream.adaptive.license_key=435d7c3cd9535c87ad612c8fe53c0cd5:1fc01b04272f1ce5b34c000a76e3d55f,f3e22d881aa15d5abac70a5be03a7871:e726ddbd2a68d69786c9152a980e2c6e,5f07d81924f55764bc0b41dc25c8d9b3:48a98029a679e11b7298851f22a68df5,7618430c78b65af78ae375abee12bc9a:62a46a590863081ab0cebbb7e3cc3b2c,a876f23f16825ffbb0b676266e7564f1:16a8c30908b228a05123cf2ec6f97485
-#EXTVLCOPT:http-user-agent=@shoebbro
-#EXTVLCOPT:http-referrer=https://www.jiotv.com/
-#EXTVLCOPT:http-extra-headers=Origin: https://www.jiotv.com
-#EXTVLCOPT:http-cookie=__hdnea__=st=1791642020~exp=1791663620~acl=/bpk-tv/ZeeYuva_BTS/WDVLive/*~hmac=e8bc44f6ea01220f4c818e12f2481d8eedf143369d56dc6888c11cef75c818a4
-#EXTHTTP:{"Origin":"https://www.jiotv.com","Referer":"https://www.jiotv.com/","Cookie":"__hdnea__=st=1791642020~exp=1791663620~acl=/bpk-tv/ZeeYuva_BTS/WDVLive/*~hmac=e8bc44f6ea01220f4c818e12f2481d8eedf143369d56dc6888c11cef75c818a4"}
-https://jiotvpllive.cdn.jio.com/bpk-tv/ZeeYuva_BTS/WDVLive/index.mpd?|cookie=__hdnea__=st=1791642020~exp=1791663620~acl=/bpk-tv/ZeeYuva_BTS/WDVLive/*~hmac=e8bc44f6ea01220f4c818e12f2481d8eedf143369d56dc6888c11cef75c818a4&referer=https://www.jiotv.com/&origin=https://www.jiotv.com&user-agent=@shoebbro
+#KODIPROP:inputstream.adaptive.manifest_type=m3u8
+https://dknttpxmr0dwf.cloudfront.net/index_57.m3u8
 
-#EXTINF:-1 tvg-name="Zee 24 Taas" tvg-logo="https://img.media.jio.com/tvpimages/9/84/301342_1753198923876_l_medium.jpg" group-title="News", Zee 24 Taas
+#EXTINF:-1 tvg-id="442" tvg-name="Zee 24 Taas" tvg-logo="https://img.media.jio.com/tvpimages/9/84/301342_1753198923876_l_medium.jpg" group-title="News" tvg-language="Marathi", Zee 24 Taas
 #KODIPROP:inputstream=inputstream.adaptive
-#KODIPROP:inputstream.adaptive.manifest_type=mpd
-#KODIPROP:inputstream.adaptive.license_type=clearkey
-#KODIPROP:inputstream.adaptive.license_key=e4a7458e3e02550082e97464f0d17937:cf3a9e59be0272d4dd2d63b7d75417ed,1ade9ab20c735684acfa38dacdfcb8c5:0650c82cfb1d4b56a90ae1f095e21159,ce7c15405b49552096c7e07a0d84cb98:ee9a3b8192d3dc42aff1c04a0e5fe12a,c038f68733de51ee8b505ae27b1a9c35:c6c46c4633eb8d281955b871a77aada1,ad96961254c85ef98521840d25f3386d:2f697b8ca2d2b48c34294ee843c0d5ca
-#EXTVLCOPT:http-user-agent=@shoebbro
-#EXTVLCOPT:http-referrer=https://www.jiotv.com/
-#EXTVLCOPT:http-extra-headers=Origin: https://www.jiotv.com
-#EXTVLCOPT:http-cookie=__hdnea__=st=1791642020~exp=1791663620~acl=/bpk-tv/Zee_24_Taas_BTS/WDVLive/*~hmac=504b87e48ad225e3cc0b25d3a589d4e1c0fac2448dfb9206e0767518b08c9062
-#EXTHTTP:{"Origin":"https://www.jiotv.com","Referer":"https://www.jiotv.com/","Cookie":"__hdnea__=st=1791642020~exp=1791663620~acl=/bpk-tv/Zee_24_Taas_BTS/WDVLive/*~hmac=504b87e48ad225e3cc0b25d3a589d4e1c0fac2448dfb9206e0767518b08c9062"}
-https://jiotvpllive.cdn.jio.com/bpk-tv/Zee_24_Taas_BTS/WDVLive/index.mpd?|cookie=__hdnea__=st=1791642020~exp=1791663620~acl=/bpk-tv/Zee_24_Taas_BTS/WDVLive/*~hmac=504b87e48ad225e3cc0b25d3a589d4e1c0fac2448dfb9206e0767518b08c9062&referer=https://www.jiotv.com/&origin=https://www.jiotv.com&user-agent=@shoebbro
+#KODIPROP:inputstream.adaptive.manifest_type=m3u8
+https://dgrvlduwztkd4.cloudfront.net/index_1.m3u8
 
-#EXTINF:-1 tvg-name="Zee Thirai HD" tvg-logo="https://img.media.jio.com/tvpimages/59/93/304103_1768465079003_l_medium.jpg" group-title="Movies", Zee Thirai HD
+#EXTINF:-1 tvg-id="657" tvg-name="Zee Business" tvg-logo="https://jiotv.catchup.cdn.jio.com/dare_images/images/Zee_Business.png" group-title="Business News" tvg-language="Hindi", Zee Business
 #KODIPROP:inputstream=inputstream.adaptive
-#KODIPROP:inputstream.adaptive.manifest_type=mpd
-#KODIPROP:inputstream.adaptive.license_type=clearkey
-#KODIPROP:inputstream.adaptive.license_key=58d0716748ee52f4a55cf7baa6e072bb:8fc185a1015f026fec82236bb0e096f4,88aaf3c74a8258ce8c75c74d259e9d95:12c0cc0b355a86ff3e942123284b94fa,7ddfa2e971cd5ebf8d5337f404ed2878:49d966969a62e77d4ff1004772988b61,c87a82b43b1e5902829e408335628cd4:7b858623533c561989358530c6ad7af7,c2d762acbea256c0bd67b92d59f69757:46c59697457af3a687426a4691393774
-#EXTVLCOPT:http-user-agent=@shoebbro
-#EXTVLCOPT:http-referrer=https://www.jiotv.com/
-#EXTVLCOPT:http-extra-headers=Origin: https://www.jiotv.com
-#EXTVLCOPT:http-cookie=__hdnea__=st=1791720053~exp=1791741653~acl=/bpk-tv/ZeeThiraiHD_BTS/WDVLive/*~hmac=4e83653467809f61fdbe8afb0ebf42191e45a361f3d88d8ac0adc5cf1ff4385c
-#EXTHTTP:{"Origin":"https://www.jiotv.com","Referer":"https://www.jiotv.com/","Cookie":"__hdnea__=st=1791720053~exp=1791741653~acl=/bpk-tv/ZeeThiraiHD_BTS/WDVLive/*~hmac=4e83653467809f61fdbe8afb0ebf42191e45a361f3d88d8ac0adc5cf1ff4385c"}
-https://jiotvpllive.cdn.jio.com/bpk-tv/ZeeThiraiHD_BTS/WDVLive/index.mpd?|cookie=__hdnea__=st=1791720053~exp=1791741653~acl=/bpk-tv/ZeeThiraiHD_BTS/WDVLive/*~hmac=4e83653467809f61fdbe8afb0ebf42191e45a361f3d88d8ac0adc5cf1ff4385c&referer=https://www.jiotv.com/&origin=https://www.jiotv.com&user-agent=@shoebbro"""
+#KODIPROP:inputstream.adaptive.manifest_type=m3u8
+https://dwby15d04agvq.cloudfront.net/index_1.m3u8
+
+#EXTINF:-1 tvg-id="652" tvg-name="Zee Bharat" tvg-logo="https://jiotv.catchup.cdn.jio.com/dare_images/images/Zee_Hindustan.png" group-title="News" tvg-language="Hindi", Zee Bharat
+#KODIPROP:inputstream=inputstream.adaptive
+#KODIPROP:inputstream.adaptive.manifest_type=m3u8
+https://d1hp2yai3k4ork.cloudfront.net/index_4.m3u8
+
+#EXTINF:-1 tvg-id="661" tvg-name="Zee Bihar Jharkhand" tvg-logo="https://jiotv.catchup.cdn.jio.com/dare_images/images/Zee_Purvaiya.png" group-title="News" tvg-language="Bhojpuri", Zee Bihar Jharkhand
+#KODIPROP:inputstream=inputstream.adaptive
+#KODIPROP:inputstream.adaptive.manifest_type=m3u8
+https://d3vmwjy7v49lo5.cloudfront.net/index_4.m3u8
+
+#EXTINF:-1 tvg-id="724" tvg-name="Zee Delhi NCR Haryana" tvg-logo="https://jiotv.catchup.cdn.jio.com/dare_images/images/Zee_Delhi_NCR_Haryana.png" group-title="News" tvg-language="Hindi", Zee Delhi NCR Haryana
+#KODIPROP:inputstream=inputstream.adaptive
+#KODIPROP:inputstream.adaptive.manifest_type=m3u8
+https://d2s40ae9uabrl.cloudfront.net/_4.m3u8
+
+#EXTINF:-1 tvg-id="658" tvg-name="Zee MP Chhattisgarh" tvg-logo="https://jiotv.catchup.cdn.jio.com/dare_images/images/Zee_Madhya_Pradesh_Chhattisgarh.png" group-title="News" tvg-language="Hindi", Zee MP Chhattisgarh
+#KODIPROP:inputstream=inputstream.adaptive
+#KODIPROP:inputstream.adaptive.manifest_type=m3u8
+https://d1ek9hdbw9xxcw.cloudfront.net/index_4.m3u8
+
+#EXTINF:-1 tvg-id="654" tvg-name="Zee Punjab Haryana HP" tvg-logo="https://jiotv.catchup.cdn.jio.com/dare_images/images/Zee_Punjab_Haryana_Himachal.png" group-title="News" tvg-language="Punjabi", Zee Punjab Haryana HP
+#KODIPROP:inputstream=inputstream.adaptive
+#KODIPROP:inputstream.adaptive.manifest_type=m3u8
+https://d31s6sxcz6vnac.cloudfront.net/index_3.m3u8
+
+#EXTINF:-1 tvg-id="659" tvg-name="Zee Rajasthan" tvg-logo="https://jiotv.catchup.cdn.jio.com/dare_images/images/Zee_Marudhara.png" group-title="News" tvg-language="Hindi", Zee Rajasthan
+#KODIPROP:inputstream=inputstream.adaptive
+#KODIPROP:inputstream.adaptive.manifest_type=m3u8
+https://d2jso9g61rg1h8.cloudfront.net/index_3.m3u8
+
+#EXTINF:-1 tvg-id="572" tvg-name="Zee UP UK" tvg-logo="https://jiotv.catchup.cdn.jio.com/dare_images/images/Zee_Uttar_Pradesh_Uttarakhand.png" group-title="News" tvg-language="Hindi", Zee UP UK
+#KODIPROP:inputstream=inputstream.adaptive
+#KODIPROP:inputstream.adaptive.manifest_type=m3u8
+https://duw35ict5q7th.cloudfront.net/index_3.m3u8
+
+#EXTINF:-1 tvg-id="464" tvg-name="Zee 24 Ghanta" tvg-logo="https://jiotv.catchup.cdn.jio.com/dare_images/images/Zee_24_Ghanta.png" group-title="News" tvg-language="Bengali", Zee 24 Ghanta
+#KODIPROP:inputstream=inputstream.adaptive
+#KODIPROP:inputstream.adaptive.manifest_type=m3u8
+https://d2dsoyvkr33m05.cloudfront.net/index_1.m3u8
+
+#EXTINF:-1 tvg-id="929" tvg-name="Zee 24 Kalak" tvg-logo="https://jiotv.catchup.cdn.jio.com/dare_images/images/Zee_24_Kalak.png" group-title="News" tvg-language="Gujarati", Zee 24 Kalak
+#KODIPROP:inputstream=inputstream.adaptive
+#KODIPROP:inputstream.adaptive.manifest_type=m3u8
+https://d2i4me5ac6ausm.cloudfront.net/index_1.m3u8"""
 
     private const val EMBEDDED_SPORTS_M3U = """#EXTM3U
 
@@ -776,13 +813,23 @@ https://sliv.tgaadi.workers.dev/sonymarathi.m3u8"""
 
     /**
      * Checks if token is expired and fetches fresh token URL if needed before playing.
+     * If the token cannot be refreshed, seamlessly falls back to CloudFront HLS or JioTV Go server stream.
      */
     suspend fun getUpdatedChannel(
         context: Context,
         channel: Channel,
+        serverBaseUrl: String = "",
         forceRefresh: Boolean = false
     ): Channel = withContext(Dispatchers.IO) {
+        val isLocalServerStream = channel.streamUrl.contains("127.0.0.1") || channel.streamUrl.contains("localhost")
+
+        // 1. If channel already has an authenticated local server stream from JioTV Go, keep it!
+        if (isLocalServerStream && channel.streamUrl.isNotBlank() && !channel.id.startsWith("zee_")) {
+            return@withContext channel
+        }
+
         val cleanId = channel.id.removePrefix("zee_")
+        val num = channel.number
         val zeeId = "zee_$cleanId"
         var zc = zeeChannelsMap[zeeId] ?: zeeChannelsMap["zee_${channel.number}"]
         if (zc == null) {
@@ -809,12 +856,52 @@ https://sliv.tgaadi.workers.dev/sonymarathi.m3u8"""
             }
         }
 
+        // 2. If token is still expired or unusable:
+        val stillExpired = isTokenExpired(zc.streamUrl, zc.cookie)
+        if (isManagedToken && stillExpired) {
+            // Check for verified CloudFront HLS fallback stream
+            val cfUrl = CLOUD_FRONT_FALLBACKS[zc.channelNumber] ?: CLOUD_FRONT_FALLBACKS[num]
+            if (!cfUrl.isNullOrEmpty()) {
+                Log.i(TAG, "Using CloudFront HLS fallback for ${zc.name}: $cfUrl")
+                return@withContext channel.copy(
+                    streamUrl = cfUrl,
+                    licenseKeyUrl = null,
+                    licenseType = null,
+                    manifestType = "m3u8"
+                )
+            }
+
+            // If JioTV server stream is available for this channel, fall back to Jio's own!
+            if (serverBaseUrl.isNotBlank() && (zc.channelNumber > 0 || num > 0)) {
+                val jioChNum = if (zc.channelNumber > 0) zc.channelNumber else num
+                val jioStreamUrl = "$serverBaseUrl/live/$jioChNum.m3u8"
+                Log.i(TAG, "Third-party token unusable for ${zc.name}, falling back to Jio server: $jioStreamUrl")
+                return@withContext channel.copy(
+                    streamUrl = jioStreamUrl,
+                    licenseKeyUrl = null,
+                    licenseType = null,
+                    manifestType = "m3u8"
+                )
+            }
+        }
+
         val jwk = if (zc.licenseKey.isNotEmpty()) clearKeyToJwkJson(zc.licenseKey) else ""
         channel.copy(
             streamUrl = zc.streamUrl,
             licenseKeyUrl = if (jwk.isNotEmpty()) "jwk:$jwk" else channel.licenseKeyUrl,
             manifestType = if (zc.isMpd) "mpd" else "m3u8"
         )
+    }
+
+    fun getFallbackStreamUrl(channelId: String, channelNumber: Int, serverBaseUrl: String): String? {
+        val cleanId = channelId.removePrefix("zee_").toIntOrNull() ?: channelNumber
+        val cf = CLOUD_FRONT_FALLBACKS[cleanId] ?: CLOUD_FRONT_FALLBACKS[channelNumber]
+        if (!cf.isNullOrEmpty()) return cf
+        if (serverBaseUrl.isNotBlank() && (channelNumber > 0 || cleanId > 0)) {
+            val num = if (channelNumber > 0) channelNumber else cleanId
+            return "$serverBaseUrl/live/$num.m3u8"
+        }
+        return null
     }
 
     fun isTokenExpired(streamUrl: String?, cookie: String?): Boolean {
@@ -825,8 +912,8 @@ https://sliv.tgaadi.workers.dev/sonymarathi.m3u8"""
                 cookie.substringAfter("__hdnea__=").substringBefore(";")
             else -> return false
         }
-        val expMatch = Regex("""exp=(\d+)""").find(token) ?: return false
-        val expSec = expMatch.groupValues[1].toLongOrNull() ?: return false
+        val expMatch = Regex("""exp=(\d+)""").find(token) ?: return true
+        val expSec = expMatch.groupValues[1].toLongOrNull() ?: return true
         val nowSec = System.currentTimeMillis() / 1000L
         return nowSec >= (expSec - 120L)
     }
@@ -894,6 +981,10 @@ https://sliv.tgaadi.workers.dev/sonymarathi.m3u8"""
                     val cookieStr = "__hdnea__=$token"
                     val expMatch = Regex("""exp=(\d+)""").find(token)
                     val expSec = expMatch?.groupValues?.get(1)?.toLongOrNull() ?: 0L
+                    val nowSec = System.currentTimeMillis() / 1000L
+
+                    // Skip dead or expired tokens from cookie JSON
+                    if (expSec <= nowSec + 60L) continue
 
                     liveTokensMap[cid] = LiveTokenInfo(furl, cookieStr, expSec)
 
@@ -1046,6 +1137,16 @@ https://sliv.tgaadi.workers.dev/sonymarathi.m3u8"""
                     meta?.logoUrl ?: currentLogo
                 }
 
+                val fallbackCf = CLOUD_FRONT_FALLBACKS[channelIdNum]
+                val tokenExpired = isTokenExpired(cleanUrl, currentCookie)
+                val finalStreamUrl = if (tokenExpired && !fallbackCf.isNullOrEmpty()) {
+                    fallbackCf
+                } else {
+                    cleanUrl
+                }
+                val finalManifestMpd = if (finalStreamUrl == fallbackCf) false else (currentManifestType.equals("mpd", ignoreCase = true) || finalStreamUrl.contains(".mpd"))
+                val finalLicenseKey = if (finalStreamUrl == fallbackCf) "" else currentLicenseKey
+
                 list.add(
                     ZeeChannel(
                         id = channelIdNum.toString(),
@@ -1053,13 +1154,13 @@ https://sliv.tgaadi.workers.dev/sonymarathi.m3u8"""
                         logoUrl = finalLogo,
                         group = finalGroup,
                         channelNumber = channelIdNum,
-                        streamUrl = cleanUrl,
+                        streamUrl = finalStreamUrl,
                         cookie = currentCookie,
                         userAgent = finalUserAgent,
                         referer = finalReferer,
                         origin = finalOrigin,
-                        licenseKey = currentLicenseKey,
-                        isMpd = currentManifestType.equals("mpd", ignoreCase = true) || cleanUrl.contains(".mpd"),
+                        licenseKey = finalLicenseKey,
+                        isMpd = finalManifestMpd,
                         language = finalLang,
                         stbNumber = finalStb
                     )
@@ -1118,14 +1219,24 @@ https://sliv.tgaadi.workers.dev/sonymarathi.m3u8"""
      * ClearKey kid:key,kid:key -> JWK JSON for LocalMediaDrmCallback.
      */
     fun clearKeyToJwkJson(clearKeyStr: String): String {
-        val flags = android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP
         val keyEntries = validClearKeyPairs(clearKeyStr).map { (kid, key) ->
-            val kidB64 = android.util.Base64.encodeToString(hexToBytes(kid), flags)
-            val kB64 = android.util.Base64.encodeToString(hexToBytes(key), flags)
+            val kidB64 = base64UrlEncode(hexToBytes(kid))
+            val kB64 = base64UrlEncode(hexToBytes(key))
             """{"kty":"oct","kid":"$kidB64","k":"$kB64"}"""
         }
         if (keyEntries.isEmpty()) return ""
         return """{"keys":[${keyEntries.joinToString(",")}],"type":"temporary"}"""
+    }
+
+    private fun base64UrlEncode(bytes: ByteArray): String {
+        return try {
+            android.util.Base64.encodeToString(
+                bytes,
+                android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP
+            ).trim()
+        } catch (_: Throwable) {
+            java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+        }
     }
 
     private val HEX_128 = Regex("[0-9a-fA-F]{32}")
