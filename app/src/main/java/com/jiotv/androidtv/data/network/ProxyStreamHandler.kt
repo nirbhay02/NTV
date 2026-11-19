@@ -135,13 +135,35 @@ class ProxyStreamHandler(private val serverConfig: ServerConfig) {
             val url = request.url.toString()
             val reqBuilder = request.newBuilder()
 
-            // If stream URL has __hdnea__ token, ensure Cookie header is passed with it
+            val isJioPlLive = url.contains("jiotvpllive.cdn.jio.com", ignoreCase = true)
+
+            // If stream URL has __hdnea__ token, ensure Cookie header is passed with it and cached for segments
             if (url.contains("__hdnea__=")) {
                 val token = url.substringAfter("__hdnea__=").substringBefore("&")
                 reqBuilder.header("Cookie", "__hdnea__=$token")
+                val host = request.url.host
+                val cookie = Cookie.Builder()
+                    .domain(host)
+                    .path("/")
+                    .name("__hdnea__")
+                    .value(token)
+                    .build()
+                val list = cookieStore.getOrPut(host) { mutableListOf() }
+                synchronized(list) {
+                    list.removeAll { it.name == "__hdnea__" }
+                    list.add(cookie)
+                }
+            } else if (isJioPlLive && request.header("Cookie").isNullOrBlank()) {
+                val list = cookieStore[request.url.host]
+                val token = synchronized(list ?: emptyList<Cookie>()) {
+                    list?.find { it.name == "__hdnea__" }?.value
+                }
+                if (!token.isNullOrBlank()) {
+                    reqBuilder.header("Cookie", "__hdnea__=$token")
+                }
             }
 
-            // JioTV Official Player User-Agent
+            // Broadcaster spoofing headers
             val jioUA = "JioTV/7.0.8 (Linux; Android 13; Pixel 7 Pro Build/TQ1A.221205.011; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/110.0.5481.64 Mobile Safari/537.36"
             val isJioHost = url.contains("jio.com", ignoreCase = true) ||
                     url.contains("jio.dev", ignoreCase = true) ||
@@ -149,7 +171,12 @@ class ProxyStreamHandler(private val serverConfig: ServerConfig) {
                     url.contains("akamai", ignoreCase = true) ||
                     url.contains("webplay", ignoreCase = true)
 
-            if (isJioHost) {
+            if (isJioPlLive) {
+                // jiotvpllive CDN streams for Zee Network require @shoebbro and jiotv.com Referer/Origin
+                reqBuilder.header("User-Agent", "@shoebbro")
+                reqBuilder.header("Origin", "https://www.jiotv.com")
+                reqBuilder.header("Referer", "https://www.jiotv.com/")
+            } else if (isJioHost) {
                 if (request.header("User-Agent").isNullOrBlank()) reqBuilder.header("User-Agent", jioUA)
                 if (request.header("os").isNullOrBlank()) reqBuilder.header("os", "android")
                 if (request.header("devicetype").isNullOrBlank()) reqBuilder.header("devicetype", "phone")

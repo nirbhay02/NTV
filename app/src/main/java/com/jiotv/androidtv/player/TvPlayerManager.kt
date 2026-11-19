@@ -434,13 +434,24 @@ class TvPlayerManager(
                     .build()
             )
 
-        val normalizedHeaders = mutableMapOf(
-            "User-Agent" to "JioTV/7.0.8 (Linux; Android 13; Pixel 7 Pro Build/TQ1A.221205.011; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/110.0.5481.64 Mobile Safari/537.36",
-            "Accept" to "*/*",
-            "Connection" to "keep-alive",
-            "Origin" to serverConfig.baseUrl,
-            "Referer" to "${serverConfig.baseUrl}/"
-        )
+        val isJioPlLive = playbackUrl.contains("jiotvpllive.cdn.jio.com", ignoreCase = true)
+        val normalizedHeaders = if (isJioPlLive) {
+            mutableMapOf(
+                "User-Agent" to "@shoebbro",
+                "Origin" to "https://www.jiotv.com",
+                "Referer" to "https://www.jiotv.com/",
+                "Accept" to "*/*",
+                "Connection" to "keep-alive"
+            )
+        } else {
+            mutableMapOf(
+                "User-Agent" to "JioTV/7.0.8 (Linux; Android 13; Pixel 7 Pro Build/TQ1A.221205.011; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/110.0.5481.64 Mobile Safari/537.36",
+                "Accept" to "*/*",
+                "Connection" to "keep-alive",
+                "Origin" to serverConfig.baseUrl,
+                "Referer" to "${serverConfig.baseUrl}/"
+            )
+        }
 
         // Only attach Widevine DRM on DASH streams when device supports it
         val isWidevineSupported = try {

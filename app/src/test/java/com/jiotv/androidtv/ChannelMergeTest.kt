@@ -42,7 +42,7 @@ class ChannelMergeTest {
                 id = "zee_167",
                 name = "Zee TV HD",
                 number = 167,
-                streamUrl = "https://d1rc86nwwc9fag.cloudfront.net/260723/zeetvapachd_2500/chunks.m3u8",
+                streamUrl = "https://jiotvpllive.cdn.jio.com/bpk-tv/ZeeTVHD_BTS/WDVLive/index.mpd",
                 groupTitle = "Zee Network",
                 isZee = true
             ),
@@ -50,7 +50,7 @@ class ChannelMergeTest {
                 id = "zee_1351",
                 name = "Zee TV",
                 number = 1351,
-                streamUrl = "https://d1rc86nwwc9fag.cloudfront.net/260723/zeetvapachd_2500/chunks.m3u8",
+                streamUrl = "https://jiotvpllive.cdn.jio.com/bpk-tv/ZeeTV_BTS/WDVLive/index.mpd",
                 groupTitle = "Zee Network",
                 isZee = true
             ),
@@ -75,16 +75,16 @@ class ChannelMergeTest {
         assertTrue("Zee News should be marked isZee", zeeNews.isZee)
         assertEquals("Zee Network", zeeNews.groupTitle)
 
-        // Zee TV HD must be present and marked isZee
+        // Zee TV HD must be present and marked isZee with native DASH stream
         val zeeTvHd = merged.first { it.number == 167 }
         assertEquals("zee_167", zeeTvHd.id)
-        assertEquals("https://d1rc86nwwc9fag.cloudfront.net/260723/zeetvapachd_2500/chunks.m3u8", zeeTvHd.streamUrl)
+        assertEquals("https://jiotvpllive.cdn.jio.com/bpk-tv/ZeeTVHD_BTS/WDVLive/index.mpd", zeeTvHd.streamUrl)
         assertTrue("Zee TV HD should be marked isZee", zeeTvHd.isZee)
 
         // Zee TV SD must also be present
         val zeeTvSd = merged.first { it.number == 1351 }
         assertEquals("zee_1351", zeeTvSd.id)
-        assertEquals("https://d1rc86nwwc9fag.cloudfront.net/260723/zeetvapachd_2500/chunks.m3u8", zeeTvSd.streamUrl)
+        assertEquals("https://jiotvpllive.cdn.jio.com/bpk-tv/ZeeTV_BTS/WDVLive/index.mpd", zeeTvSd.streamUrl)
 
         // Server non-Zee channel (Star Plus) must be present with server stream
         val starPlus = merged.first { it.number == 101 }

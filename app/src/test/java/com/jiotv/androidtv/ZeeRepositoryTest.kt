@@ -4,13 +4,14 @@ import com.jiotv.androidtv.data.repository.ZeeRepository
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ZeeRepositoryTest {
 
     @Test
-    fun testParseM3u_usesCloudFrontFallbackWhenTokenExpired() {
+    fun testParseM3u_retainsIndianDashMpdAndClearKey() {
         val sampleM3u = """
             #EXTM3U
             #EXTINF:-1 tvg-id="167" tvg-name="Zee TV HD" tvg-logo="https://img.media.jio.com/zeetv.jpg" group-title="Entertainment", Zee TV HD
@@ -27,27 +28,27 @@ class ZeeRepositoryTest {
         val zeeTv = parsed[0]
         assertEquals(167, zeeTv.channelNumber)
         assertEquals("Zee TV HD", zeeTv.name)
-        // Since token exp=2000 is expired, it should fallback to live CloudFront HLS
-        assertEquals("https://d1rc86nwwc9fag.cloudfront.net/260723/zeetvapachd_2500/chunks.m3u8", zeeTv.streamUrl)
-        assertFalse(zeeTv.isMpd)
-        assertEquals("", zeeTv.licenseKey)
+        // Uses native Jio CDN MPD URL and ClearKey DRM pair
+        assertTrue(zeeTv.streamUrl.contains("jiotvpllive.cdn.jio.com/bpk-tv/ZeeTVHD_BTS/WDVLive/index.mpd"))
+        assertTrue(zeeTv.isMpd)
+        assertEquals("7b3d2290787255ac9cdaf43ae31eacce:d0edfa8ebd655926c5e2932d8c59b3d1", zeeTv.licenseKey)
     }
 
     @Test
-    fun testParseM3u_directHlsStream() {
+    fun testParseM3u_newsHlsStream() {
         val sampleM3u = """
             #EXTM3U
-            #EXTINF:-1 tvg-id="165" tvg-name="Zee Cinema HD" group-title="Movies", Zee Cinema HD
-            https://da86m1sqpm3o0.cloudfront.net/28072023/smil:zeecinemaapachd.smil/chunklist_b2628000.m3u8
+            #EXTINF:-1 tvg-id="504" tvg-name="Zee News" group-title="News", Zee News
+            https://dknttpxmr0dwf.cloudfront.net/index_57.m3u8
         """.trimIndent()
 
         val parsed = ZeeRepository.parseM3u(sampleM3u)
         assertEquals(1, parsed.size)
-        val zeeCinema = parsed[0]
-        assertEquals(165, zeeCinema.channelNumber)
-        assertEquals("Zee Cinema HD", zeeCinema.name)
-        assertEquals("https://da86m1sqpm3o0.cloudfront.net/28072023/smil:zeecinemaapachd.smil/chunklist_b2628000.m3u8", zeeCinema.streamUrl)
-        assertFalse(zeeCinema.isMpd)
+        val zeeNews = parsed[0]
+        assertEquals(504, zeeNews.channelNumber)
+        assertEquals("Zee News", zeeNews.name)
+        assertEquals("https://dknttpxmr0dwf.cloudfront.net/index_57.m3u8", zeeNews.streamUrl)
+        assertFalse(zeeNews.isMpd)
     }
 
     @Test
@@ -57,7 +58,7 @@ class ZeeRepositoryTest {
 
         val expiredUrl = "https://cdn.jio.com/stream.mpd?__hdnea__=st=1000~exp=$pastSec~acl=/*~hmac=abc"
         val validUrl = "https://cdn.jio.com/stream.mpd?__hdnea__=st=1000~exp=$futureSec~acl=/*~hmac=abc"
-        val nonManagedUrl = "https://d1rc86nwwc9fag.cloudfront.net/live/chunks.m3u8"
+        val nonManagedUrl = "https://dknttpxmr0dwf.cloudfront.net/index_57.m3u8"
 
         assertTrue(ZeeRepository.isTokenExpired(expiredUrl, null))
         assertFalse(ZeeRepository.isTokenExpired(validUrl, null))
@@ -66,9 +67,9 @@ class ZeeRepositoryTest {
 
     @Test
     fun testGetFallbackStreamUrl() {
-        // Zee TV HD (167) has CloudFront fallback
+        // Zee TV HD (167) falls back to Jio server
         val fallback167 = ZeeRepository.getFallbackStreamUrl("zee_167", 167, "http://127.0.0.1:5001")
-        assertEquals("https://d1rc86nwwc9fag.cloudfront.net/260723/zeetvapachd_2500/chunks.m3u8", fallback167)
+        assertEquals("http://127.0.0.1:5001/live/167.m3u8", fallback167)
 
         // Zee News (504) has CloudFront fallback
         val fallback504 = ZeeRepository.getFallbackStreamUrl("504", 504, "http://127.0.0.1:5001")
@@ -81,9 +82,14 @@ class ZeeRepositoryTest {
 
     @Test
     fun testGetCloudFrontStream() {
-        assertEquals("https://d1rc86nwwc9fag.cloudfront.net/260723/zeetvapachd_2500/chunks.m3u8", ZeeRepository.getCloudFrontStream("167", 167, "Zee TV HD"))
-        assertEquals("https://d1rc86nwwc9fag.cloudfront.net/260723/zeetvapachd_2500/chunks.m3u8", ZeeRepository.getCloudFrontStream("1351", 1351, "Zee TV"))
-        assertEquals("https://d1rc86nwwc9fag.cloudfront.net/260723/zeetvapachd_2500/chunks.m3u8", ZeeRepository.getCloudFrontStream("server_143", 143, "Zee TV"))
+        // Domestic entertainment/movie channels should NOT return CloudFront streams
+        assertNull(ZeeRepository.getCloudFrontStream("167", 167, "Zee TV HD"))
+        assertNull(ZeeRepository.getCloudFrontStream("1351", 1351, "Zee TV"))
+        assertNull(ZeeRepository.getCloudFrontStream("165", 165, "Zee Cinema HD"))
+
+        // News channels should return Indian CloudFront news streams
+        assertEquals("https://dknttpxmr0dwf.cloudfront.net/index_57.m3u8", ZeeRepository.getCloudFrontStream("504", 504, "Zee News"))
+        assertEquals("https://dgrvlduwztkd4.cloudfront.net/index_1.m3u8", ZeeRepository.getCloudFrontStream("442", 442, "Zee 24 Taas"))
     }
 
     @Test
