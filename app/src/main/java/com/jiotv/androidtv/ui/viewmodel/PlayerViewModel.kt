@@ -180,7 +180,7 @@ class PlayerViewModel(
 
         channelSwitchJob = viewModelScope.launch {
             val serverConfig = serverConfigRepository.serverConfig.first()
-            val resolvedChannel = if (channel.isZee || channel.id.startsWith("zee_")) {
+            val resolvedChannel = if (channel.isZee || channel.id.startsWith("zee_") || com.jiotv.androidtv.data.parser.ChannelFilter.isZeeChannel(channel)) {
                 ZeeRepository.getUpdatedChannel(context, channel, serverBaseUrl = serverConfig.baseUrl)
             } else {
                 channel

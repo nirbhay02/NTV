@@ -67,17 +67,29 @@ object ZeeRepository {
      * These require no auth tokens, no DRM decryption, and provide rock-solid 1080p/720p streams.
      */
     val CLOUD_FRONT_FALLBACKS = mapOf(
-        // Zee TV HD
+        // Zee TV HD & SD
         167 to "https://d1rc86nwwc9fag.cloudfront.net/260723/zeetvapachd_2500/chunks.m3u8",
-        // Zee Cinema HD
+        1351 to "https://d1rc86nwwc9fag.cloudfront.net/260723/zeetvapachd_2500/chunks.m3u8",
+        143 to "https://d1rc86nwwc9fag.cloudfront.net/260723/zeetvapachd_2500/chunks.m3u8",
+        144 to "https://d1rc86nwwc9fag.cloudfront.net/260723/zeetvapachd_2500/chunks.m3u8",
+
+        // Zee Cinema HD & SD
         165 to "https://da86m1sqpm3o0.cloudfront.net/28072023/smil:zeecinemaapachd.smil/chunklist_b2628000.m3u8",
-        // Zee Marathi HD
+        484 to "https://da86m1sqpm3o0.cloudfront.net/28072023/smil:zeecinemaapachd.smil/chunklist_b2628000.m3u8",
+        289 to "https://da86m1sqpm3o0.cloudfront.net/28072023/smil:zeecinemaapachd.smil/chunklist_b2628000.m3u8",
+
+        // Zee Marathi HD & SD
         1360 to "https://d1rc86nwwc9fag.cloudfront.net/260723/smil:zeemarathi.smil/chunklist_b2628000.m3u8",
-        // Zee Telugu HD
+        445 to "https://d1rc86nwwc9fag.cloudfront.net/260723/smil:zeemarathi.smil/chunklist_b2628000.m3u8",
+
+        // Zee Telugu HD & SD
         3278 to "https://d1rc86nwwc9fag.cloudfront.net/260723/smil:zeetelugu.smil/chunklist_b2628000.m3u8",
-        // Zee Bangla HD
+        627 to "https://d1rc86nwwc9fag.cloudfront.net/260723/smil:zeetelugu.smil/chunklist_b2628000.m3u8",
+
+        // Zee Bangla HD & SD
         1357 to "https://d1rc86nwwc9fag.cloudfront.net/260723/smil:zeebangla.smil/chunklist_b2628000.m3u8",
         625 to "https://d1rc86nwwc9fag.cloudfront.net/260723/smil:zeebangla.smil/chunklist_b2628000.m3u8",
+
         // Zee News
         504 to "https://dknttpxmr0dwf.cloudfront.net/index_57.m3u8",
         // Zee 24 Taas
@@ -103,6 +115,37 @@ object ZeeRepository {
         // Zee 24 Kalak
         929 to "https://d2i4me5ac6ausm.cloudfront.net/index_1.m3u8"
     )
+
+    /**
+     * Resolves live CloudFront stream URL for any Zee channel by ID, channel number, or channel name.
+     */
+    fun getCloudFrontStream(channelId: String, channelNumber: Int, channelName: String): String? {
+        val cleanId = channelId.removePrefix("zee_").toIntOrNull() ?: channelNumber
+        val byId = CLOUD_FRONT_FALLBACKS[cleanId] ?: CLOUD_FRONT_FALLBACKS[channelNumber]
+        if (!byId.isNullOrEmpty()) return byId
+
+        val lowerName = channelName.lowercase().replace(Regex("[^a-z0-9]"), "")
+        return when {
+            lowerName.contains("zeetv") -> CLOUD_FRONT_FALLBACKS[167]
+            lowerName.contains("zeecinema") -> CLOUD_FRONT_FALLBACKS[165]
+            lowerName.contains("zeemarathi") -> CLOUD_FRONT_FALLBACKS[1360]
+            lowerName.contains("zeetelugu") -> CLOUD_FRONT_FALLBACKS[3278]
+            lowerName.contains("zeebangla") -> CLOUD_FRONT_FALLBACKS[625]
+            lowerName.contains("zeenews") -> CLOUD_FRONT_FALLBACKS[504]
+            lowerName.contains("zee24taas") -> CLOUD_FRONT_FALLBACKS[442]
+            lowerName.contains("zeebusiness") -> CLOUD_FRONT_FALLBACKS[657]
+            lowerName.contains("zeebharat") -> CLOUD_FRONT_FALLBACKS[652]
+            lowerName.contains("zeebihar") -> CLOUD_FRONT_FALLBACKS[661]
+            lowerName.contains("zeedelhi") -> CLOUD_FRONT_FALLBACKS[724]
+            lowerName.contains("zeemp") -> CLOUD_FRONT_FALLBACKS[658]
+            lowerName.contains("zeepunjab") -> CLOUD_FRONT_FALLBACKS[654]
+            lowerName.contains("zeerajasthan") -> CLOUD_FRONT_FALLBACKS[659]
+            lowerName.contains("zeeup") -> CLOUD_FRONT_FALLBACKS[572]
+            lowerName.contains("zee24ghanta") -> CLOUD_FRONT_FALLBACKS[464]
+            lowerName.contains("zee24kalak") -> CLOUD_FRONT_FALLBACKS[929]
+            else -> null
+        }
+    }
 
     private val CHANNEL_METADATA = mapOf(
         // Zee Channels
@@ -270,7 +313,17 @@ object ZeeRepository {
 #KODIPROP:inputstream.adaptive.manifest_type=m3u8
 https://d1rc86nwwc9fag.cloudfront.net/260723/zeetvapachd_2500/chunks.m3u8
 
+#EXTINF:-1 tvg-id="1351" tvg-name="Zee TV" tvg-logo="https://img.media.jio.com/tvpimages/85/63/300396_1768460644560_l_medium.jpg" group-title="Entertainment" tvg-language="Hindi", Zee TV
+#KODIPROP:inputstream=inputstream.adaptive
+#KODIPROP:inputstream.adaptive.manifest_type=m3u8
+https://d1rc86nwwc9fag.cloudfront.net/260723/zeetvapachd_2500/chunks.m3u8
+
 #EXTINF:-1 tvg-id="165" tvg-name="Zee Cinema HD" tvg-logo="https://img.media.jio.com/tvpimages/76/6/300330_1768289569650_l_medium.jpg" group-title="Movies" tvg-language="Hindi", Zee Cinema HD
+#KODIPROP:inputstream=inputstream.adaptive
+#KODIPROP:inputstream.adaptive.manifest_type=m3u8
+https://da86m1sqpm3o0.cloudfront.net/28072023/smil:zeecinemaapachd.smil/chunklist_b2628000.m3u8
+
+#EXTINF:-1 tvg-id="484" tvg-name="Zee Cinema" tvg-logo="https://img.media.jio.com/tvpimages/76/6/300330_1768289569650_l_medium.jpg" group-title="Movies" tvg-language="Hindi", Zee Cinema
 #KODIPROP:inputstream=inputstream.adaptive
 #KODIPROP:inputstream.adaptive.manifest_type=m3u8
 https://da86m1sqpm3o0.cloudfront.net/28072023/smil:zeecinemaapachd.smil/chunklist_b2628000.m3u8
@@ -821,10 +874,23 @@ https://sliv.tgaadi.workers.dev/sonymarathi.m3u8"""
         serverBaseUrl: String = "",
         forceRefresh: Boolean = false
     ): Channel = withContext(Dispatchers.IO) {
+        // 1. If CloudFront stream exists for this Zee channel (by ID, number, or name), return it directly!
+        val cfUrl = getCloudFrontStream(channel.id, channel.number, channel.name)
+        if (!cfUrl.isNullOrEmpty()) {
+            Log.i(TAG, "Routing Zee channel ${channel.name} to live CloudFront stream: $cfUrl")
+            return@withContext channel.copy(
+                streamUrl = cfUrl,
+                licenseKeyUrl = null,
+                licenseType = null,
+                manifestType = "m3u8",
+                isZee = true
+            )
+        }
+
         val isLocalServerStream = channel.streamUrl.contains("127.0.0.1") || channel.streamUrl.contains("localhost")
 
-        // 1. If channel already has an authenticated local server stream from JioTV Go, keep it!
-        if (isLocalServerStream && channel.streamUrl.isNotBlank() && !channel.id.startsWith("zee_")) {
+        // 2. If channel has an authenticated local server stream from JioTV Go and is NOT a Zee channel, keep it!
+        if (isLocalServerStream && channel.streamUrl.isNotBlank() && !channel.id.startsWith("zee_") && !isZeeChannelName(channel.name)) {
             return@withContext channel
         }
 
@@ -894,11 +960,10 @@ https://sliv.tgaadi.workers.dev/sonymarathi.m3u8"""
     }
 
     fun getFallbackStreamUrl(channelId: String, channelNumber: Int, serverBaseUrl: String): String? {
-        val cleanId = channelId.removePrefix("zee_").toIntOrNull() ?: channelNumber
-        val cf = CLOUD_FRONT_FALLBACKS[cleanId] ?: CLOUD_FRONT_FALLBACKS[channelNumber]
+        val cf = getCloudFrontStream(channelId, channelNumber, "")
         if (!cf.isNullOrEmpty()) return cf
-        if (serverBaseUrl.isNotBlank() && (channelNumber > 0 || cleanId > 0)) {
-            val num = if (channelNumber > 0) channelNumber else cleanId
+        if (serverBaseUrl.isNotBlank() && (channelNumber > 0 || channelId.removePrefix("zee_").toIntOrNull() != null)) {
+            val num = if (channelNumber > 0) channelNumber else channelId.removePrefix("zee_").toInt()
             return "$serverBaseUrl/live/$num.m3u8"
         }
         return null
@@ -956,12 +1021,6 @@ https://sliv.tgaadi.workers.dev/sonymarathi.m3u8"""
             try {
                 val root = JSONObject(rawJson)
                 val items = mutableListOf<JSONObject>()
-                val failedArr = root.optJSONArray("failed_results")
-                if (failedArr != null) {
-                    for (i in 0 until failedArr.length()) {
-                        failedArr.optJSONObject(i)?.let { items.add(it) }
-                    }
-                }
                 val successArr = root.optJSONArray("successful_results")
                 if (successArr != null) {
                     for (i in 0 until successArr.length()) {
@@ -1137,9 +1196,9 @@ https://sliv.tgaadi.workers.dev/sonymarathi.m3u8"""
                     meta?.logoUrl ?: currentLogo
                 }
 
-                val fallbackCf = CLOUD_FRONT_FALLBACKS[channelIdNum]
+                val fallbackCf = getCloudFrontStream(channelIdNum.toString(), channelIdNum, finalName)
                 val tokenExpired = isTokenExpired(cleanUrl, currentCookie)
-                val finalStreamUrl = if (tokenExpired && !fallbackCf.isNullOrEmpty()) {
+                val finalStreamUrl = if (!fallbackCf.isNullOrEmpty() && (tokenExpired || cleanUrl.contains("bpk-tv"))) {
                     fallbackCf
                 } else {
                     cleanUrl

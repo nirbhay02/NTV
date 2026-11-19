@@ -205,38 +205,78 @@ class ChannelRepository(
 
             val result = mutableListOf<Channel>()
             val addedCleanNames = mutableSetOf<String>()
-            val addedNumbers = mutableSetOf<Int>()
             val addedIds = mutableSetOf<String>()
 
             fun clean(name: String) = name.lowercase().replace(Regex("[^a-z0-9]"), "")
 
-            // 1. Add all server channels from JioTV Go server first (official, authenticated live streams)
-            for (sc in serverChannels) {
-                val cName = clean(sc.name)
-                val isZee = sc.isZee || ChannelFilter.isZeeChannel(sc)
-                val processedChannel = if (isZee) {
-                    sc.copy(
+            // 1. Add all curated third-party channels FIRST (all Zee Network channels, ClearKey DRM streams, Sports)
+            // Curated streams have live CloudFront / ClearKey DRM that Jio's official server dropped.
+            for (tp in thirdParty) {
+                val cName = clean(tp.name)
+                if (cName.isNotEmpty() && cName in addedCleanNames) continue
+                if (tp.id in addedIds) continue
+
+                val isZee = tp.isZee || ChannelFilter.isZeeChannel(tp)
+                val cfUrl = ZeeRepository.getCloudFrontStream(tp.id, tp.number, tp.name)
+                val processed = if (!cfUrl.isNullOrEmpty()) {
+                    tp.copy(
+                        streamUrl = cfUrl,
+                        licenseKeyUrl = null,
+                        licenseType = null,
+                        manifestType = "m3u8",
                         isZee = true,
-                        groupTitle = if (sc.groupTitle.contains("Zee", ignoreCase = true)) sc.groupTitle else "Zee Network"
+                        groupTitle = if (tp.groupTitle.contains("Zee", ignoreCase = true)) tp.groupTitle else "Zee Network"
+                    )
+                } else if (isZee) {
+                    tp.copy(
+                        isZee = true,
+                        groupTitle = if (tp.groupTitle.contains("Zee", ignoreCase = true)) tp.groupTitle else "Zee Network"
                     )
                 } else {
-                    sc
+                    tp
                 }
-                result.add(processedChannel)
-                addedIds.add(sc.id)
-                if (sc.number > 0) addedNumbers.add(sc.number)
+                result.add(processed)
+                addedIds.add(tp.id)
                 if (cName.isNotEmpty()) addedCleanNames.add(cName)
             }
 
-            // 2. Add curated third-party channels (Zee TV HD 167, Zee Cinema HD 165, Star Sports, Sony Sports) that are not in serverChannels
-            for (tp in thirdParty) {
-                val cName = clean(tp.name)
-                if (tp.number in addedNumbers || (cName.isNotEmpty() && cName in addedCleanNames) || tp.id in addedIds) {
+            // 2. Add server channels from JioTV Go server that are not already covered in thirdParty
+            for (sc in serverChannels) {
+                val cName = clean(sc.name)
+                val isZee = sc.isZee || ChannelFilter.isZeeChannel(sc)
+
+                // If it's a Zee channel and already covered in thirdParty, skip server's version
+                if (isZee && (cName in addedCleanNames || sc.id in addedIds)) {
                     continue
                 }
-                result.add(tp)
-                addedIds.add(tp.id)
-                if (tp.number > 0) addedNumbers.add(tp.number)
+
+                if (sc.id in addedIds || (cName.isNotEmpty() && cName in addedCleanNames)) {
+                    continue
+                }
+
+                val processed = if (isZee) {
+                    val cfUrl = ZeeRepository.getCloudFrontStream(sc.id, sc.number, sc.name)
+                    if (!cfUrl.isNullOrEmpty()) {
+                        sc.copy(
+                            streamUrl = cfUrl,
+                            licenseKeyUrl = null,
+                            licenseType = null,
+                            manifestType = "m3u8",
+                            isZee = true,
+                            groupTitle = if (sc.groupTitle.contains("Zee", ignoreCase = true)) sc.groupTitle else "Zee Network"
+                        )
+                    } else {
+                        sc.copy(
+                            isZee = true,
+                            groupTitle = if (sc.groupTitle.contains("Zee", ignoreCase = true)) sc.groupTitle else "Zee Network"
+                        )
+                    }
+                } else {
+                    sc
+                }
+
+                result.add(processed)
+                addedIds.add(sc.id)
                 if (cName.isNotEmpty()) addedCleanNames.add(cName)
             }
 

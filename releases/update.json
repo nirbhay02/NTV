@@ -1,12 +1,12 @@
 {
-    "versionCode": 12,
-    "versionName": "2.2",
-    "title": "NTV Android TV v2.2",
-    "changelog": "Full Zee Network playback fix, server stream prioritization, CloudFront live HLS fallbacks, and real-time DRM/403 recovery.",
-    "size": 19479734,
+    "versionCode": 13,
+    "versionName": "2.2.1",
+    "title": "NTV Android TV v2.2.1",
+    "changelog": "Critical fix: Restored Zee TV HD and Zee TV in channel list, bound instant live CloudFront HLS streams, and locked signing certificate.",
+    "size": 19480296,
     "assets": {
-        "universal": "https://github.com/nirbhay02/NTV/releases/download/v2.2/NTV_v2.2.apk",
-        "arm64": "https://github.com/nirbhay02/NTV/releases/download/v2.2/NTV_v2.2_arm64.apk",
-        "firetv": "https://github.com/nirbhay02/NTV/releases/download/v2.2/NTV_v2.2_firetv_armv7.apk"
+        "universal": "https://github.com/nirbhay02/NTV/releases/download/v2.2.1/NTV_v2.2.1.apk",
+        "arm64": "https://github.com/nirbhay02/NTV/releases/download/v2.2.1/NTV_v2.2.1_arm64.apk",
+        "firetv": "https://github.com/nirbhay02/NTV/releases/download/v2.2.1/NTV_v2.2.1_firetv_armv7.apk"
     }
 }

@@ -299,7 +299,11 @@ class TvPlayerManager(
             // Automatic fallback engine (DRM, ClearKey, or token 403)
             if (currentChannel != null && drmRetryCount < 2) {
                 drmRetryCount++
-                val fallbackUrl = com.jiotv.androidtv.data.repository.ZeeRepository.getFallbackStreamUrl(
+                val fallbackUrl = com.jiotv.androidtv.data.repository.ZeeRepository.getCloudFrontStream(
+                    currentChannel.id,
+                    currentChannel.number,
+                    currentChannel.name
+                ) ?: com.jiotv.androidtv.data.repository.ZeeRepository.getFallbackStreamUrl(
                     currentChannel.id,
                     currentChannel.number,
                     serverConfig.baseUrl

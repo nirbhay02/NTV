@@ -80,6 +80,13 @@ class ZeeRepositoryTest {
     }
 
     @Test
+    fun testGetCloudFrontStream() {
+        assertEquals("https://d1rc86nwwc9fag.cloudfront.net/260723/zeetvapachd_2500/chunks.m3u8", ZeeRepository.getCloudFrontStream("167", 167, "Zee TV HD"))
+        assertEquals("https://d1rc86nwwc9fag.cloudfront.net/260723/zeetvapachd_2500/chunks.m3u8", ZeeRepository.getCloudFrontStream("1351", 1351, "Zee TV"))
+        assertEquals("https://d1rc86nwwc9fag.cloudfront.net/260723/zeetvapachd_2500/chunks.m3u8", ZeeRepository.getCloudFrontStream("server_143", 143, "Zee TV"))
+    }
+
+    @Test
     fun testIsZeeChannelName() {
         assertTrue(ZeeRepository.isZeeChannelName("Zee TV HD"))
         assertTrue(ZeeRepository.isZeeChannelName("Zee Cinema"))

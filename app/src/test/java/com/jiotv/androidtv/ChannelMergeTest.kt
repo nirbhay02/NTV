@@ -9,7 +9,7 @@ import org.junit.Test
 class ChannelMergeTest {
 
     @Test
-    fun testMergeChannels_prioritizesServerChannelsAndMarksZee() {
+    fun testMergeChannels_prioritizesThirdPartyZeeAndServerNonZee() {
         val serverChannels = listOf(
             Channel(
                 id = "504",
@@ -47,10 +47,18 @@ class ChannelMergeTest {
                 isZee = true
             ),
             Channel(
+                id = "zee_1351",
+                name = "Zee TV",
+                number = 1351,
+                streamUrl = "https://d1rc86nwwc9fag.cloudfront.net/260723/zeetvapachd_2500/chunks.m3u8",
+                groupTitle = "Zee Network",
+                isZee = true
+            ),
+            Channel(
                 id = "zee_504",
                 name = "Zee News",
                 number = 504,
-                streamUrl = "https://jiotvpllive.cdn.jio.com/bpk-tv/Zee_News_BTS/WDVLive/index.mpd",
+                streamUrl = "https://dknttpxmr0dwf.cloudfront.net/index_57.m3u8",
                 groupTitle = "Zee Network",
                 isZee = true
             )
@@ -58,20 +66,29 @@ class ChannelMergeTest {
 
         val merged = ChannelRepository.mergeChannels(serverChannels, thirdParty)
 
-        // Total channels: 4 (Star Plus, Zee TV HD, Zee 24 Taas, Zee News)
-        assertEquals(4, merged.size)
+        // Total channels: 5 (Star Plus, Zee TV HD, Zee TV, Zee 24 Taas, Zee News)
+        assertEquals(5, merged.size)
 
-        // Zee News should retain the server's working streamUrl!
+        // Zee News should use the reliable CloudFront stream
         val zeeNews = merged.first { it.number == 504 }
-        assertEquals("http://127.0.0.1:5001/live/504.m3u8", zeeNews.streamUrl)
-        assertEquals("504", zeeNews.id)
+        assertEquals("https://dknttpxmr0dwf.cloudfront.net/index_57.m3u8", zeeNews.streamUrl)
         assertTrue("Zee News should be marked isZee", zeeNews.isZee)
         assertEquals("Zee Network", zeeNews.groupTitle)
 
-        // Zee TV HD (not in serverChannels) should be included from thirdParty
-        val zeeTv = merged.first { it.number == 167 }
-        assertEquals("zee_167", zeeTv.id)
-        assertEquals("https://d1rc86nwwc9fag.cloudfront.net/260723/zeetvapachd_2500/chunks.m3u8", zeeTv.streamUrl)
-        assertTrue("Zee TV HD should be marked isZee", zeeTv.isZee)
+        // Zee TV HD must be present and marked isZee
+        val zeeTvHd = merged.first { it.number == 167 }
+        assertEquals("zee_167", zeeTvHd.id)
+        assertEquals("https://d1rc86nwwc9fag.cloudfront.net/260723/zeetvapachd_2500/chunks.m3u8", zeeTvHd.streamUrl)
+        assertTrue("Zee TV HD should be marked isZee", zeeTvHd.isZee)
+
+        // Zee TV SD must also be present
+        val zeeTvSd = merged.first { it.number == 1351 }
+        assertEquals("zee_1351", zeeTvSd.id)
+        assertEquals("https://d1rc86nwwc9fag.cloudfront.net/260723/zeetvapachd_2500/chunks.m3u8", zeeTvSd.streamUrl)
+
+        // Server non-Zee channel (Star Plus) must be present with server stream
+        val starPlus = merged.first { it.number == 101 }
+        assertEquals("101", starPlus.id)
+        assertEquals("http://127.0.0.1:5001/live/101.m3u8", starPlus.streamUrl)
     }
 }
